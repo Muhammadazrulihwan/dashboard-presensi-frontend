@@ -1,7 +1,9 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Icon from "@/components/ui/Icon";
+import Overlay from "@/components/ui/Overlay";
 import PageHeader from "@/components/ui/PageHeader";
+import { btnDanger, btnSecondary } from "@/components/ui/Button";
 import { deleteUpload, getUploads, nf, type UploadHistory } from "@/lib/api";
 import { useFilters } from "@/lib/filters";
 
@@ -24,6 +26,8 @@ export default function RiwayatPage() {
   const [items, setItems] = useState<UploadHistory[] | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState("");
+  const [target, setTarget] = useState<UploadHistory | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
     getUploads({ status: tab, limit: PAGE_SIZE, offset: 0 })
@@ -51,14 +55,17 @@ export default function RiwayatPage() {
       .catch((e: Error) => setError(e.message));
   }
 
-  function remove(u: UploadHistory) {
-    if (!window.confirm(`Hapus upload ${u.filename}? Semua data dari file ini ikut terhapus.`)) return;
-    deleteUpload(u.id)
+  function remove() {
+    if (!target) return;
+    setBusy(true);
+    deleteUpload(target.id)
       .then(() => {
+        setTarget(null);
         load();
         reload(); // rentang tanggal dan divisi bisa berubah
       })
-      .catch((e: Error) => setError(e.message));
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setBusy(false));
   }
 
   return (
@@ -119,7 +126,7 @@ export default function RiwayatPage() {
                       <td className="px-4 pr-6 text-right">
                         {/* TODO Fase 4: tampilkan hanya untuk HR Admin */}
                         {u.status === "saved" && (
-                          <button onClick={() => remove(u)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-status-alpa-text transition-colors hover:bg-status-alpa-bg focus-visible:outline-2 focus-visible:outline-status-alpa-text">
+                          <button onClick={() => setTarget(u)} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-status-alpa-text transition-colors hover:bg-status-alpa-bg focus-visible:outline-2 focus-visible:outline-status-alpa-text">
                             <Icon name="trash" size={15} />
                             Hapus
                           </button>
@@ -147,6 +154,30 @@ export default function RiwayatPage() {
           </div>
         )}
       </div>
+
+      <Overlay open={!!target} onClose={() => !busy && setTarget(null)} title="Hapus upload" width={480}>
+        <div className="space-y-4 p-6">
+          <div className="flex items-start gap-3 rounded-xl border border-status-alpa-border bg-status-alpa-bg p-4">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-status-alpa-text" aria-hidden="true">
+              <Icon name="alert" size={19} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-red-900">Semua data dari file ini ikut terhapus</p>
+              <p className="mt-1 text-[13px] text-red-800">
+                Upload <span className="font-semibold">{target?.filename}</span> beserta {nf.format(target?.row_count ?? 0)} baris
+                rekap presensi yang berasal darinya akan dihapus. Tindakan ini tidak dapat dibatalkan.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={remove} disabled={busy} className={btnDanger}>
+              <Icon name="trash" size={16} />
+              {busy ? "Menghapus..." : "Ya, hapus"}
+            </button>
+            <button onClick={() => setTarget(null)} disabled={busy} className={btnSecondary}>Batal</button>
+          </div>
+        </div>
+      </Overlay>
     </div>
   );
 }

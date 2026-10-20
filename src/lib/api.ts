@@ -173,6 +173,17 @@ export type Completeness = {
 };
 export const getCompleteness = (f: Filters) => request<Completeness>("/dashboard/completeness", undefined, filterParams(f));
 
+// ---------- Tutup/buka periode (PRD F13, HR) ----------
+export type Period = {
+  tahun: number; bulan: number; periode: string; ditutup: boolean;
+  ditutup_oleh: string | null; ditutup_at: string | null; alasan: string | null; records: number;
+};
+export const getPeriods = (tahun?: number) => request<Period[]>("/periods", undefined, { tahun });
+export const closePeriod = (tahun: number, bulan: number, alasan?: string) =>
+  request<Period>("/periods/close", jsonInit("POST", { tahun, bulan, alasan: alasan || undefined }));
+export const reopenPeriod = (tahun: number, bulan: number, alasan: string) =>
+  request<Period>("/periods/reopen", jsonInit("POST", { tahun, bulan, alasan }));
+
 // ---------- Upload paket empat sumber (PRD F4-F9, Rilis B) ----------
 export type SourceKind = "activity" | "report" | "timeoff" | "approval";
 export type SourceFileInfo = {
