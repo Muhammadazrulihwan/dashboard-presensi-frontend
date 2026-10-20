@@ -1,36 +1,30 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Frontend PresensiHub (redesain UI mengikuti referensi Stitch)
 
-## Getting Started
+Backend (folder `backend/`) dipakai apa adanya; hanya frontend yang berubah.
 
-First, run the development server:
+## Menjalankan
+1. Pastikan backend berjalan di http://localhost:8000 (ubah lewat `NEXT_PUBLIC_API_URL` jika berbeda).
+2. `npm install` (tidak ada paket baru; font Plus Jakarta Sans dan JetBrains Mono dimuat lewat `next/font/google`, butuh internet saat dev/build).
+3. `npm run dev`.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Login memakai akun admin awal dari `backend/.env` (`ADMIN_EMAIL` / `ADMIN_PASSWORD`).
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Halaman
+- /login — masuk (sesi cookie httpOnly)
+- /dashboard — ringkasan, tren, komposisi status, perbandingan divisi
+- /presensi — tabel data presensi (pagination, pencarian, sorting di server)
+- /karyawan/[nik] — detail satu karyawan + export PDF individual
+- /upload, /riwayat, /pengaturan — khusus HR Admin
+- /admin/users — kelola user (khusus HR Admin)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Struktur
+- Token desain terpusat di `app/globals.css` (`@theme`), warna status di `lib/theme.ts`.
+- Komponen UI dasar: `components/ui/` (Button, Icon, Panel, PageHeader, StatusBadge, Avatar, Overlay).
+- Header + sidebar: `components/layout/` (Header punya pencarian, pemilih periode, export; Sidebar menyembunyikan menu HR dari peran lain).
+- Filter bersama: `lib/filters.tsx` (FilterProvider); format tampilan: `lib/format.ts`.
+- Akses backend: `lib/api.ts`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Catatan
+- Peran diatur backend: HR Admin penuh, atasan dibatasi divisinya, manajemen hanya agregat. Sidebar/header mengikuti peran tersebut.
+- Riwayat upload menyembunyikan tombol Hapus dari non-HR (backend tetap menolak dengan 403).
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
