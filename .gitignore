@@ -1,3 +1,4 @@
+
 # Rahasia dan konfigurasi lokal
 .env
 .env.*
@@ -16,3 +17,6 @@ npm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# File ZIP yang tidak perlu di-push
+src.zip
