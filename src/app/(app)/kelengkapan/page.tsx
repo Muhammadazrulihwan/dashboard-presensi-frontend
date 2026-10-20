@@ -6,7 +6,8 @@ import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
 import { btnSecondary } from "@/components/ui/Button";
 import {
-  dateLabel, getCompleteness, nf, monthLabel, type Completeness, type CompletenessKetukan,
+  dateLabel, getCompleteness, nf, monthLabel,
+  type Completeness, type CompletenessKetukan, type CompletenessSelisih, type CompletenessKoreksiTutup,
 } from "@/lib/api";
 import { useFilters } from "@/lib/filters";
 
@@ -65,6 +66,68 @@ function KetukanTable({ rows, empty, missing }: { rows: CompletenessKetukan[]; e
               <td className={`num px-3.5 text-[13px] ${missing === "keluar" ? "font-semibold text-status-alpa-text" : "text-ink"}`}>
                 {r.jam_keluar ?? "hilang"}
               </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SelisihTable({ rows, empty }: { rows: CompletenessSelisih[]; empty: string }) {
+  if (rows.length === 0) return <p className="px-6 pb-6 pt-3 text-sm text-muted">{empty}</p>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[620px] text-sm">
+        <thead>
+          <tr className="h-11 border-y border-line bg-paper text-left text-[11px] font-bold uppercase tracking-[0.04em] text-muted">
+            <th className="pl-6 pr-3.5">Tanggal</th>
+            <th className="px-3.5">Karyawan / NIK</th>
+            <th className="px-3.5">Divisi</th>
+            <th className="px-3.5 pr-6">Selisih</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={`${r.nik}-${r.tanggal}-${i}`} className="h-14 border-b border-subtle last:border-b-0 hover:bg-paper">
+              <td className="whitespace-nowrap pl-6 pr-3.5 text-[13px] text-muted">{dateLabel(r.tanggal)}</td>
+              <td className="px-3.5">
+                <div className="whitespace-nowrap text-sm font-semibold leading-5">{r.nama}</div>
+                <div className="num text-[11px] leading-4 text-muted">{r.nik}</div>
+              </td>
+              <td className="whitespace-nowrap px-3.5 text-[13px] text-status-dinas-text">{r.departemen}</td>
+              <td className="px-3.5 pr-6 text-[13px] text-status-terlambat-text">{r.selisih}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function KoreksiTutupTable({ rows, empty }: { rows: CompletenessKoreksiTutup[]; empty: string }) {
+  if (rows.length === 0) return <p className="px-6 pb-6 pt-3 text-sm text-muted">{empty}</p>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[620px] text-sm">
+        <thead>
+          <tr className="h-11 border-y border-line bg-paper text-left text-[11px] font-bold uppercase tracking-[0.04em] text-muted">
+            <th className="pl-6 pr-3.5">Tanggal</th>
+            <th className="px-3.5">Karyawan / NIK</th>
+            <th className="px-3.5">Approver</th>
+            <th className="px-3.5 pr-6">Alasan</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={`${r.nik}-${r.tanggal}-${i}`} className="h-14 border-b border-subtle last:border-b-0 hover:bg-paper">
+              <td className="whitespace-nowrap pl-6 pr-3.5 text-[13px] text-muted">{dateLabel(r.tanggal)}</td>
+              <td className="px-3.5">
+                <div className="whitespace-nowrap text-sm font-semibold leading-5">{r.nama}</div>
+                <div className="num text-[11px] leading-4 text-muted">{r.nik}</div>
+              </td>
+              <td className="px-3.5 text-[13px]">{r.approver ?? "-"}</td>
+              <td className="px-3.5 pr-6 text-[13px] text-muted">{r.alasan ?? "-"}</td>
             </tr>
           ))}
         </tbody>
@@ -136,6 +199,18 @@ export default function KelengkapanPage() {
               hint={`${nf.format(data.ringkasan.baris_clock_out_hilang)} clock out, ${nf.format(data.ringkasan.baris_clock_in_hilang)} clock in`}
               tone={data.ringkasan.baris_clock_out_hilang + data.ringkasan.baris_clock_in_hilang === 0 ? "good" : "bad"}
             />
+            <Stat
+              label="Selisih Report"
+              value={nf.format(data.ringkasan.baris_selisih_report ?? 0)}
+              hint="Hasil sistem berbeda dari Report Attendance"
+              tone={(data.ringkasan.baris_selisih_report ?? 0) === 0 ? "good" : "warn"}
+            />
+            <Stat
+              label="Koreksi setelah tutup"
+              value={nf.format(data.ringkasan.baris_koreksi_setelah_tutup ?? 0)}
+              hint="Koreksi diajukan setelah bulan berjalan"
+              tone={(data.ringkasan.baris_koreksi_setelah_tutup ?? 0) === 0 ? "good" : "bad"}
+            />
           </div>
 
           {data.ringkasan.hari_tanpa_data === 0 && data.ringkasan.baris_clock_out_hilang === 0 && data.ringkasan.baris_clock_in_hilang === 0 ? (
@@ -206,6 +281,15 @@ export default function KelengkapanPage() {
           </div>
 
           <div className="grid gap-5 xl:grid-cols-2">
+            <Panel title="Selisih terhadap Report Attendance" subtitle="Hasil sistem berbeda dari Report; dipakai sebagai pembanding, bukan menimpa">
+              <SelisihTable rows={data.selisih_report} empty="Tidak ada selisih terhadap Report Attendance." />
+            </Panel>
+            <Panel title="Koreksi setelah tutup bulan" subtitle="Koreksi yang diajukan setelah bulan efektifnya lewat">
+              <KoreksiTutupTable rows={data.koreksi_setelah_tutup} empty="Tidak ada koreksi setelah tutup bulan." />
+            </Panel>
+          </div>
+
+          <div className="grid gap-5 xl:grid-cols-2">
             <Panel title="Cakupan per bulan" subtitle="Jumlah karyawan dan baris yang tercatat tiap bulan">
               {data.cakupan_bulan.length === 0 ? (
                 <p className="px-6 pb-6 pt-3 text-sm text-muted">Belum ada data pada filter ini.</p>
@@ -235,7 +319,7 @@ export default function KelengkapanPage() {
               )}
             </Panel>
 
-            <Panel title="Status sumber data" subtitle="Sumber yang tersedia dan yang menyusul di Rilis B">
+            <Panel title="Status sumber data" subtitle="Sumber yang tersedia untuk membangun Rekap Absensi">
               <ul className="divide-y divide-line px-6 pb-6 pt-2">
                 {data.sumber.map((s) => {
                   const ok = s.status === "tersedia";
@@ -262,8 +346,8 @@ export default function KelengkapanPage() {
 
           <p className="rounded-xl border border-line bg-white px-4 py-3 text-[13px] leading-5 text-muted">
             Indikator <span className="font-semibold text-ink">selisih terhadap Report Attendance</span> dan{" "}
-            <span className="font-semibold text-ink">koreksi setelah tutup bulan</span> menyusul setelah parser empat sumber (Rilis B),
-            karena datanya belum tersedia pada upload template saat ini.
+            <span className="font-semibold text-ink">koreksi setelah tutup bulan</span> berasal dari Rekap Absensi
+            terpadu (paket empat sumber). Pada data yang hanya diunggah lewat file template lama, keduanya kosong.
           </p>
         </div>
       )}

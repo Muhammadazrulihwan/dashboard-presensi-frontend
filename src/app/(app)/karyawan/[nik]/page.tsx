@@ -138,7 +138,7 @@ function EmployeeDetail() {
           <div className="overflow-x-auto">
             <table className="w-full whitespace-nowrap text-sm">
               <thead className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-                <tr>{["Tanggal", "Masuk", "Keluar", "Terlambat", "Durasi", "Status", "Keterangan"].map((h) => <th key={h} className="px-6 py-3 font-semibold">{h}</th>)}</tr>
+                <tr>{["Tanggal", "Masuk", "Keluar", "Terlambat", "Durasi", "Jam nyata", "Status", "Koreksi", "Keterangan"].map((h) => <th key={h} className="px-6 py-3 font-semibold">{h}</th>)}</tr>
               </thead>
               <tbody>
                 {data.range.map((row) => (
@@ -148,11 +148,21 @@ function EmployeeDetail() {
                     <td className="num px-6 py-3">{row.jam_keluar ?? "-"}</td>
                     <td className="num px-6 py-3">{row.menit_terlambat > 0 ? <span className="font-semibold text-status-terlambat-text">{row.menit_terlambat}m</span> : "0"}</td>
                     <td className="num px-6 py-3">{durationLabel(row.durasi_kerja)}</td>
+                    <td className="num px-6 py-3">{durationLabel(row.jam_kerja_nyata ?? null)}</td>
                     <td className="px-6 py-3"><StatusBadge status={row.status} lateMinutes={row.menit_terlambat} /></td>
-                    <td className="px-6 py-3"><span className="block max-w-[240px] truncate" title={row.keterangan ?? ""}>{row.keterangan ?? "-"}</span></td>
+                    <td className="px-6 py-3">
+                      {row.dikoreksi
+                        ? <span className="rounded-full border border-accent-ring bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent" title={row.koreksi_alasan ?? ""}>Dikoreksi{row.koreksi_approver ? ` · ${row.koreksi_approver}` : ""}</span>
+                        : <span className="text-faint">-</span>}
+                    </td>
+                    <td className="px-6 py-3">
+                      <span className="block max-w-[240px] truncate" title={row.selisih_report ?? row.keterangan ?? ""}>
+                        {row.selisih_report ? <span className="text-status-terlambat-text">Selisih Report</span> : (row.keterangan ?? "-")}
+                      </span>
+                    </td>
                   </tr>
                 ))}
-                {data.range.length === 0 && <tr><td colSpan={7} className="px-6 py-12 text-center text-muted">Tidak ada data pada rentang ini.</td></tr>}
+                {data.range.length === 0 && <tr><td colSpan={9} className="px-6 py-12 text-center text-muted">Tidak ada data pada rentang ini.</td></tr>}
               </tbody>
             </table>
           </div>

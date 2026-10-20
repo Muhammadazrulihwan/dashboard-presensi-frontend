@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import DataTable from "@/components/dashboard/DataTable";
+import CorrectionStrip from "@/components/dashboard/CorrectionStrip";
 import DeptCompare from "@/components/dashboard/DeptCompare";
 import { ActiveChips, AdvancedFilter, DeptTabs } from "@/components/dashboard/FilterControls";
 import KpiStrip from "@/components/dashboard/KpiStrip";
@@ -163,6 +164,7 @@ export default function DashboardPage() {
 
       <div className={`space-y-5 transition-opacity ${loading ? "opacity-60" : ""}`} aria-busy={loading}>
         <KpiStrip summary={summary} />
+        <CorrectionStrip summary={summary.current} />
 
         {empty ? (
           <Panel>

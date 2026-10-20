@@ -33,6 +33,7 @@ export type SummaryData = {
   izin: number; sakit: number; cuti: number; alpa: number; dinas_luar: number; tidak_hadir: number;
   avg_jam_masuk: string | null; avg_jam_masuk_menit: number | null; avg_selisih_masuk_menit: number | null;
   karyawan: number; records: number;
+  dikoreksi?: number; selisih_report?: number; clock_out_hilang?: number; koreksi_setelah_tutup?: number; jam_kerja_nyata?: number | null;
 };
 export type SummaryResponse = { current: SummaryData; previous: SummaryData | null };
 export type TrendPoint = { period: string; kehadiran_pct: number | null; terlambat: number };
@@ -46,6 +47,8 @@ export type AttendanceRow = {
   id: number; tanggal: string; nik: string; nama: string; departemen: string;
   jam_masuk: string | null; jam_keluar: string | null; menit_terlambat: number;
   durasi_kerja: number | null; status: string; keterangan: string | null;
+  jam_kerja_nyata?: number | null; dikoreksi?: boolean; koreksi_alasan?: string | null;
+  koreksi_approver?: string | null; clock_out_hilang?: boolean; selisih_report?: string | null;
 };
 export type RecordsPage = { items: AttendanceRow[]; total: number; page: number; page_size: number };
 export type SortKey = "tanggal" | "nik" | "nama" | "departemen" | "jam_masuk" | "menit_terlambat" | "durasi_kerja" | "status";
@@ -158,16 +161,21 @@ export type CompletenessKetukan = {
 };
 export type CompletenessCakupan = { periode: string; karyawan: number; baris: number; hari_kerja: number };
 export type CompletenessSumber = { kode: string; nama: string; status: "tersedia" | "belum"; catatan: string };
+export type CompletenessSelisih = { nik: string; nama: string; departemen: string; tanggal: string; selisih: string; menit_terlambat: number };
+export type CompletenessKoreksiTutup = { nik: string; nama: string; departemen: string; tanggal: string; alasan: string | null; approver: string | null };
 export type Completeness = {
   periode: { from: string | null; to: string | null };
   hari_kerja_kalender: number;
   ringkasan: {
     karyawan: number; karyawan_lengkap: number; karyawan_tanpa_data: number;
     hari_tanpa_data: number; baris_clock_out_hilang: number; baris_clock_in_hilang: number;
+    baris_selisih_report?: number; baris_koreksi_setelah_tutup?: number;
   };
   karyawan_tanpa_data: CompletenessTanpaData[];
   clock_out_hilang: CompletenessKetukan[];
   clock_in_hilang: CompletenessKetukan[];
+  selisih_report: CompletenessSelisih[];
+  koreksi_setelah_tutup: CompletenessKoreksiTutup[];
   cakupan_bulan: CompletenessCakupan[];
   sumber: CompletenessSumber[];
 };

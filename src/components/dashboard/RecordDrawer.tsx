@@ -46,6 +46,16 @@ export default function RecordDrawer({ row, filters, onClose }: { row: Attendanc
             <Item label="Jam keluar"><span className="num">{row.jam_keluar ?? "--:--"}</span></Item>
             <Item label="Durasi kerja"><span className="num">{durationLabel(row.durasi_kerja)}</span></Item>
             <Item label="Menit terlambat"><span className={`num ${row.menit_terlambat > 0 ? "text-status-terlambat-text" : ""}`}>{nf.format(row.menit_terlambat)} mnt</span></Item>
+            {row.jam_kerja_nyata != null && <Item label="Jam kerja nyata"><span className="num">{durationLabel(row.jam_kerja_nyata)}</span></Item>}
+            {row.dikoreksi && (
+              <Item label="Koreksi" wide>
+                <span className="rounded-full border border-accent-ring bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent">
+                  Dikoreksi{row.koreksi_approver ? ` oleh ${row.koreksi_approver}` : ""}
+                </span>
+                {row.koreksi_alasan && <span className="mt-1 block text-xs font-normal text-muted">{row.koreksi_alasan}</span>}
+              </Item>
+            )}
+            {row.selisih_report && <Item label="Selisih Report" wide><span className="text-xs font-normal text-status-terlambat-text">{row.selisih_report}</span></Item>}
             <Item label="Keterangan" wide><span className="font-medium">{row.keterangan ?? "Tidak ada keterangan"}</span></Item>
           </dl>
           {perf && (
