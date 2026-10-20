@@ -149,6 +149,96 @@ export const getRecords = (
     ...filterParams(f), page: o.page, page_size: o.pageSize, sort: o.sort, order: o.order, q: o.q,
   });
 
+// ---------- Kelengkapan Data (PRD F12, HR) ----------
+export type CompletenessTanpaData = {
+  nik: string; nama: string; departemen: string; hari_kerja_tercatat: number; hari_tanpa_data: number;
+};
+export type CompletenessKetukan = {
+  nik: string; nama: string; departemen: string; tanggal: string; jam_masuk: string | null; jam_keluar: string | null;
+};
+export type CompletenessCakupan = { periode: string; karyawan: number; baris: number; hari_kerja: number };
+export type CompletenessSumber = { kode: string; nama: string; status: "tersedia" | "belum"; catatan: string };
+export type Completeness = {
+  periode: { from: string | null; to: string | null };
+  hari_kerja_kalender: number;
+  ringkasan: {
+    karyawan: number; karyawan_lengkap: number; karyawan_tanpa_data: number;
+    hari_tanpa_data: number; baris_clock_out_hilang: number; baris_clock_in_hilang: number;
+  };
+  karyawan_tanpa_data: CompletenessTanpaData[];
+  clock_out_hilang: CompletenessKetukan[];
+  clock_in_hilang: CompletenessKetukan[];
+  cakupan_bulan: CompletenessCakupan[];
+  sumber: CompletenessSumber[];
+};
+export const getCompleteness = (f: Filters) => request<Completeness>("/dashboard/completeness", undefined, filterParams(f));
+
+// ---------- Upload paket empat sumber (PRD F4-F9, Rilis B) ----------
+export type SourceKind = "activity" | "report" | "timeoff" | "approval";
+export type SourceFileInfo = {
+  jenis_sumber: SourceKind; nama_file: string; row_count: number; warnings: string[];
+  mapped_columns: string[]; date_from: string | null; date_to: string | null;
+};
+export type PackagePreview = {
+  upload_id: number; files: SourceFileInfo[]; errors: string[]; can_save: boolean;
+  date_from: string | null; date_to: string | null; employee_count: number; rekap_rows: number;
+  status_counts: Record<string, number>; conflict_count: number;
+};
+export type PackageConfirm = {
+  upload: UploadHistory; inserted: number; overwritten: number; skipped: number;
+  sumber: Record<string, number>; employees: number;
+};
+
+export function packagePreview(files: Partial<Record<SourceKind, File>>, onProgress: (pct: number) => void): Promise<PackagePreview> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_URL}/uploads/package/preview`);
+    xhr.withCredentials = true;
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      let body: unknown = null;
+      try { body = JSON.parse(xhr.responseText); } catch {}
+      if (xhr.status >= 200 && xhr.status < 300) resolve(body as PackagePreview);
+      else {
+        if (xhr.status === 401) onUnauthorized("/uploads/package/preview");
+        reject(new ApiError(detailOf(body) ?? "Upload paket gagal", xhr.status));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError(NETWORK_MSG));
+    const fd = new FormData();
+    (Object.keys(files) as SourceKind[]).forEach((k) => {
+      const f = files[k];
+      if (f) fd.append(k, f);
+    });
+    xhr.send(fd);
+  });
+}
+export const confirmPackage = (id: number, mode?: ConflictMode) =>
+  request<PackageConfirm>(`/uploads/package/${id}/confirm`, jsonInit("POST", mode ? { mode } : {}));
+
+// ---------- Arsip file upload (PRD F22-F24, HR & Audit) ----------
+export type ArchiveStatus = "aktif" | "sampah" | "dihapus";
+export type ArchivedFile = {
+  id: number; upload_id: number | null; jenis_sumber: string; nama_asli: string; ukuran: number;
+  checksum: string; checksum_terverifikasi: boolean; pengunggah: string | null;
+  periode_awal: string | null; periode_akhir: string | null; status: ArchiveStatus;
+  created_at: string; dihapus_at: string | null; alasan_hapus: string | null; bisa_dihapus_permanen: boolean;
+};
+export type ArchivedFilePage = { items: ArchivedFile[]; total: number; page: number; page_size: number };
+export type ArchiveQuery = {
+  status?: ArchiveStatus | "semua"; jenis_sumber?: string; pengunggah_id?: number;
+  q?: string; dari?: string; sampai?: string; page?: number; page_size?: number;
+};
+export const getArchive = (o: ArchiveQuery = {}) => request<ArchivedFilePage>("/archive", undefined, o);
+export const getArchiveUploaders = () => request<{ id: number; full_name: string; email: string }[]>("/archive/uploaders");
+export const archiveDownloadUrl = (id: number) => `${API_URL}/archive/${id}/download`;
+export const trashArchive = (id: number, alasan: string) => request<ArchivedFile>(`/archive/${id}/trash`, jsonInit("POST", { alasan }));
+export const restoreArchive = (id: number) => request<ArchivedFile>(`/archive/${id}/restore`, { method: "POST" });
+export const purgeArchive = (id: number) => request<ArchivedFile>(`/archive/${id}`, { method: "DELETE" });
+export const canArchive = (m: Me | null) => m?.departemen === "HR" || m?.departemen === "Audit";
+
 // ---------- Upload ----------
 export const getUploads = (o: { status?: string; limit?: number; offset?: number } = {}) =>
   request<UploadHistory[]>("/uploads", undefined, o);
@@ -265,6 +355,13 @@ export const getHolidays = (year: number) => request<Holiday[]>("/settings/holid
 export const addHoliday = (h: { tanggal: string; nama: string }) => request<Holiday>("/settings/holidays", jsonInit("POST", h));
 export const removeHoliday = (id: number) => request<void>(`/settings/holidays/${id}`, { method: "DELETE" });
 export const recalculate = (from: string, to: string) => request<{ updated: number }>("/settings/recalculate", jsonInit("POST", { from, to }));
+
+// ---------- Audit log (HR, IT, Audit) ----------
+export type AuditUser = { id: number; full_name: string; email: string };
+export type AuditAction = { value: string; label: string };
+// Pengguna yang muncul di audit log (bukan seluruh akun; /admin/users khusus IT).
+export const getAuditUsers = () => request<AuditUser[]>("/admin/audit-log/users");
+export const getAuditActions = () => request<{ actions: AuditAction[] }>("/admin/audit-log/actions");
 
 // ---------- Kelola user (departemen IT) ----------
 export type AdminUser = {

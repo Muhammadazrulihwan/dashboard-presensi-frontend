@@ -3,16 +3,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icon, { type IconName } from "@/components/ui/Icon";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { templateUrl, salesTemplateUrl, isHR, isIT, isSalesTeam, canDashboard, canPerformance } from "@/lib/api";
+import { templateUrl, salesTemplateUrl, isHR, isIT, isSalesTeam, canDashboard, canPerformance, canArchive } from "@/lib/api";
 
 // Menu tampil berdasar departemen. Backend tetap menolak departemen lain dengan 403.
 // show: "dashboard" 4 departemen, "hr" hanya HR, "it" hanya IT, "auditlog" HR/IT/Audit.
-type Show = "dashboard" | "hr" | "it" | "auditlog" | "performance" | "sales";
+type Show = "dashboard" | "hr" | "it" | "auditlog" | "performance" | "sales" | "archive";
 const MAIN: { href: string; label: string; icon: IconName; show: Show }[] = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard", show: "dashboard" },
   { href: "/presensi", label: "Data Presensi", icon: "calendar", show: "dashboard" },
   { href: "/upload", label: "Upload Data", icon: "upload", show: "hr" },
+  { href: "/upload-paket", label: "Upload Paket 4 Sumber", icon: "cloudUpload", show: "hr" },
   { href: "/riwayat", label: "Riwayat Upload", icon: "history", show: "hr" },
+  { href: "/kelengkapan", label: "Kelengkapan Data", icon: "clipboardCheck", show: "hr" },
+  { href: "/arsip", label: "Arsip File", icon: "file", show: "archive" },
   { href: "/pengaturan", label: "Pengaturan Shift & Libur", icon: "sliders", show: "hr" },
   { href: "/sales/dashboard", label: "Kinerja Penjualan", icon: "trending", show: "performance" },
   { href: "/sales/upload", label: "Upload Penjualan", icon: "upload", show: "sales" },
@@ -34,6 +37,8 @@ function visible(show: Show, user: Parameters<typeof canDashboard>[0]): boolean 
       return isSalesTeam(user);
     case "auditlog":
       return isHR(user) || isIT(user) || user?.departemen === "Audit";
+    case "archive":
+      return canArchive(user);
   }
 }
 
