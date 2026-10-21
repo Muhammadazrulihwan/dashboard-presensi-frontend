@@ -283,7 +283,11 @@ export const getUploads = (o: { status?: string; limit?: number; offset?: number
   request<UploadHistory[]>("/uploads", undefined, o);
 export const confirmUpload = (id: number, mode?: ConflictMode) =>
   request<ConfirmResponse>(`/uploads/${id}/confirm`, jsonInit("POST", mode ? { mode } : {}));
-export const deleteUpload = (id: number) => request<UploadHistory>(`/uploads/${id}`, { method: "DELETE" });
+export const deleteUpload = (id: number, alasan?: string) =>
+  request<UploadHistory>(`/uploads/${id}`, jsonInit("DELETE", alasan ? { alasan } : undefined));
+export type BulkDeleteResult = { dihapus: number; tidak_ditemukan: number[]; arsip_ke_tempat_sampah: number };
+export const bulkDeleteUploads = (ids: number[], alasan?: string) =>
+  request<BulkDeleteResult>("/uploads/bulk-delete", jsonInit("POST", { ids, alasan: alasan || undefined }));
 export const templateUrl = `${API_URL}/uploads/template`;
 
 // XMLHttpRequest dipakai karena fetch belum mendukung progres upload.

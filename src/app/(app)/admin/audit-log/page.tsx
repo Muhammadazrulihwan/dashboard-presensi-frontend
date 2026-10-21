@@ -37,6 +37,7 @@ const ACTION_LABELS: Record<string, string> = {
   upload_preview: "Periksa File Presensi",
   upload_confirm: "Simpan File Presensi",
   upload_delete: "Hapus Upload Presensi",
+  upload_bulk_delete: "Hapus Beberapa Upload Presensi",
   package_preview: "Periksa Paket Empat Sumber",
   package_confirm: "Simpan Paket Empat Sumber",
   // Kinerja penjualan (Sales/Marketing)
@@ -107,6 +108,11 @@ function formatDetail(action: string, detail: Record<string, unknown> | null): s
     return `#${s("upload_id")} · ${parts.join(", ")}`;
   }
   if (action === "upload_delete") return s("filename") || `#${s("upload_id")}`;
+  if (action === "upload_bulk_delete") {
+    const ids = Array.isArray(detail.upload_ids) ? (detail.upload_ids as number[]) : [];
+    const lewat = Array.isArray(detail.tidak_ditemukan) ? (detail.tidak_ditemukan as number[]).length : 0;
+    return `${nf.format(n("jumlah"))} file${ids.length ? ` (#${ids.slice(0, 5).join(", #")}${ids.length > 5 ? ", …" : ""})` : ""}${lewat ? ` · ${nf.format(lewat)} tidak ditemukan` : ""}${s("alasan") ? ` · ${s("alasan")}` : ""}`;
+  }
   if (action === "package_preview") {
     const sumber = Array.isArray(detail.sumber) ? (detail.sumber as string[]).join(", ") : s("sumber");
     return `#${s("upload_id")} · ${sumber || "-"} · ${nf.format(n("rekap_rows"))} baris${n("errors") ? `, ${nf.format(n("errors"))} masalah` : ""}`;

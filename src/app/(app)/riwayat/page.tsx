@@ -3,8 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import Icon from "@/components/ui/Icon";
 import Overlay from "@/components/ui/Overlay";
 import PageHeader from "@/components/ui/PageHeader";
-import { btnDanger, btnSecondary } from "@/components/ui/Button";
-import { dateLabel, deleteUpload, getUploads, nf, type UploadHistory } from "@/lib/api";
+import { btnDanger, btnSecondary, fieldClass } from "@/components/ui/Button";
+import { bulkDeleteUploads, dateLabel, deleteUpload, getUploads, nf, type UploadHistory } from "@/lib/api";
 import { useFilters } from "@/lib/filters";
 
 const STATUS = {
@@ -34,13 +34,18 @@ export default function RiwayatPage() {
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState("");
   const [target, setTarget] = useState<UploadHistory | null>(null);
+  const [alasan, setAlasan] = useState("");
   const [busy, setBusy] = useState(false);
+  // Seleksi massal: hanya baris berstatus "saved" yang bisa dihapus.
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const load = useCallback(() => {
     getUploads({ status: tab, limit: PAGE_SIZE, offset: 0 })
       .then((r) => {
         setItems(r);
         setHasMore(r.length === PAGE_SIZE);
+        setSelected(new Set());
         setError("");
       })
       .catch((e: Error) => setError(e.message));
@@ -50,7 +55,39 @@ export default function RiwayatPage() {
 
   function changeTab(key: string) {
     setItems(null);
+    setSelected(new Set());
     setTab(key);
+  }
+
+  const deletable = (items ?? []).filter((u) => u.status === "saved");
+  const allSelected = deletable.length > 0 && deletable.every((u) => selected.has(u.id));
+  const selectedItems = deletable.filter((u) => selected.has(u.id));
+
+  function toggleOne(id: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(deletable.map((u) => u.id)));
+  }
+
+  function removeBulk() {
+    if (selectedItems.length === 0) return;
+    setBusy(true);
+    bulkDeleteUploads(selectedItems.map((u) => u.id), alasan.trim() || undefined)
+      .then(() => {
+        setBulkOpen(false);
+        setAlasan("");
+        load();
+        reload();
+      })
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setBusy(false));
   }
 
   function loadMore() {
@@ -65,9 +102,10 @@ export default function RiwayatPage() {
   function remove() {
     if (!target) return;
     setBusy(true);
-    deleteUpload(target.id)
+    deleteUpload(target.id, alasan.trim() || undefined)
       .then(() => {
         setTarget(null);
+        setAlasan("");
         load();
         reload(); // rentang tanggal dan divisi bisa berubah
       })
@@ -98,22 +136,76 @@ export default function RiwayatPage() {
 
         {error && <p className="rounded-xl border border-status-alpa-border bg-status-alpa-bg px-4 py-3 text-sm text-status-alpa-text" role="alert">{error}</p>}
 
+        {deletable.length > 0 && (
+          <div className={`flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 text-sm transition-colors ${selected.size > 0 ? "border-accent-ring bg-accent-soft" : "border-line bg-white"}`}>
+            <label className="inline-flex cursor-pointer items-center gap-2 font-medium">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                ref={(el) => { if (el) el.indeterminate = selected.size > 0 && !allSelected; }}
+                onChange={toggleAll}
+                aria-label="Pilih semua file yang bisa dihapus"
+                className="h-4 w-4 accent-accent"
+              />
+              {allSelected ? "Batalkan semua" : "Pilih semua"}
+            </label>
+            <span className="text-muted">
+              {selected.size > 0
+                ? <><span className="font-semibold text-ink">{nf.format(selected.size)}</span> file dipilih</>
+                : <>{nf.format(deletable.length)} file bisa dihapus</>}
+            </span>
+            <button
+              disabled={selected.size === 0}
+              onClick={() => { setAlasan(""); setBulkOpen(true); }}
+              className={`${btnDanger} ml-auto h-9 disabled:cursor-not-allowed disabled:opacity-40`}
+            >
+              <Icon name="trash" size={16} />
+              Hapus terpilih{selected.size > 0 ? ` (${nf.format(selected.size)})` : ""}
+            </button>
+          </div>
+        )}
+
         <section className="overflow-hidden rounded-2xl border border-line bg-white shadow-card">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
+            <table className="w-full min-w-[820px] text-sm">
               <thead>
                 <tr className="h-11 border-b border-line bg-paper text-left">
+                  <th className="w-10 pl-6 pr-2">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      disabled={deletable.length === 0}
+                      aria-label="Pilih semua file yang bisa dihapus"
+                      className="h-4 w-4 accent-accent disabled:opacity-40"
+                    />
+                  </th>
                   {["File", "Pengunggah", "Waktu", "Jumlah baris", "Status", ""].map((h, i) => (
-                    <th key={h + i} className={`whitespace-nowrap px-4 text-[11px] font-bold uppercase tracking-[0.04em] text-muted ${i === 0 ? "pl-6" : ""}`}>{h}</th>
+                    <th key={h + i} className={`whitespace-nowrap px-4 text-[11px] font-bold uppercase tracking-[0.04em] text-muted`}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {items?.map((u) => {
                   const s = STATUS[u.status];
+                  const canSelect = u.status === "saved";
+                  const isSel = selected.has(u.id);
                   return (
-                    <tr key={u.id} className="h-14 border-b border-subtle transition-colors last:border-b-0 hover:bg-paper">
-                      <td className="pl-6 pr-4">
+                    <tr key={u.id} className={`h-14 border-b border-subtle transition-colors last:border-b-0 ${isSel ? "bg-accent-soft/50" : "hover:bg-paper"}`}>
+                      <td className="pl-6 pr-2">
+                        {canSelect ? (
+                          <input
+                            type="checkbox"
+                            checked={isSel}
+                            onChange={() => toggleOne(u.id)}
+                            aria-label={`Pilih ${u.filename}`}
+                            className="h-4 w-4 accent-accent"
+                          />
+                        ) : (
+                          <span className="block h-4 w-4" aria-hidden="true" />
+                        )}
+                      </td>
+                      <td className="pr-4">
                         <div className="flex items-center gap-3">
                           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-accent-ring bg-accent-soft text-accent" aria-hidden="true">
                             <Icon name="file" size={17} />
@@ -167,10 +259,10 @@ export default function RiwayatPage() {
                   );
                 })}
                 {items && items.length === 0 && (
-                  <tr><td colSpan={6} className="px-6 py-14 text-center text-muted">Tidak ada data pada tab ini.</td></tr>
+                  <tr><td colSpan={7} className="px-6 py-14 text-center text-muted">Tidak ada data pada tab ini.</td></tr>
                 )}
                 {!items && !error && (
-                  <tr><td colSpan={6} className="px-6 py-14 text-center text-muted">Memuat data...</td></tr>
+                  <tr><td colSpan={7} className="px-6 py-14 text-center text-muted">Memuat data...</td></tr>
                 )}
               </tbody>
             </table>
@@ -186,29 +278,98 @@ export default function RiwayatPage() {
         )}
       </div>
 
-      <Overlay open={!!target} onClose={() => !busy && setTarget(null)} title="Hapus upload" width={480}>
+      <Overlay open={!!target} onClose={() => !busy && setTarget(null)} title="Hapus upload" width={520}>
         <div className="space-y-4 p-6">
-          <div className="flex items-start gap-3 rounded-xl border border-status-alpa-border bg-status-alpa-bg p-4">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-status-alpa-text" aria-hidden="true">
+          <div className="flex items-start gap-3 rounded-xl border border-status-terlambat-border bg-status-terlambat-bg p-4">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-status-terlambat-text" aria-hidden="true">
               <Icon name="alert" size={19} />
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-bold text-red-900">Semua data dari file ini ikut terhapus</p>
-              <p className="mt-1 text-[13px] text-red-800">
+              <p className="text-sm font-bold text-amber-900">Data presensi dihapus, file asli tetap aman</p>
+              <p className="mt-1 text-[13px] text-amber-800">
                 Upload <span className="font-semibold">{target?.filename}</span> beserta {nf.format(target?.row_count ?? 0)} baris
-                rekap presensi yang berasal darinya akan dihapus. Tindakan ini tidak dapat dibatalkan.
+                rekap presensi akan dihapus dari dashboard. File aslinya dipindahkan ke{" "}
+                <span className="font-semibold">Tempat Sampah</span> di halaman Arsip File dan masih bisa dipulihkan
+                selama masa tunggu belum habis.
               </p>
             </div>
           </div>
+          <label className="flex flex-col gap-1.5 text-xs font-medium text-muted">
+            Alasan (opsional)
+            <textarea
+              value={alasan}
+              onChange={(e) => setAlasan(e.target.value)}
+              rows={2}
+              maxLength={500}
+              placeholder="Contoh: salah unggah, data duplikat"
+              className={`${fieldClass} h-auto w-full py-2 font-normal`}
+            />
+          </label>
           <div className="flex flex-wrap gap-3">
             <button onClick={remove} disabled={busy} className={btnDanger}>
               <Icon name="trash" size={16} />
-              {busy ? "Menghapus..." : "Ya, hapus"}
+              {busy ? "Menghapus..." : "Ya, hapus dari dashboard"}
             </button>
             <button onClick={() => setTarget(null)} disabled={busy} className={btnSecondary}>Batal</button>
+          </div>
+        </div>
+      </Overlay>
+
+      <Overlay open={bulkOpen} onClose={() => !busy && setBulkOpen(false)} title="Hapus beberapa upload" width={560}>
+        <div className="space-y-4 p-6">
+          <div className="flex items-start gap-3 rounded-xl border border-status-terlambat-border bg-status-terlambat-bg p-4">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-status-terlambat-text" aria-hidden="true">
+              <Icon name="alert" size={19} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-amber-900">
+                {nf.format(selectedItems.length)} file akan dihapus dari dashboard
+              </p>
+              <p className="mt-1 text-[13px] text-amber-800">
+                Data presensi dari file-file ini dihapus dari dashboard. Semua file aslinya dipindahkan ke{" "}
+                <span className="font-semibold">Tempat Sampah</span> di halaman Arsip File dan masih bisa dipulihkan
+                selama masa tunggu belum habis.
+              </p>
+            </div>
+          </div>
+
+          <div className="max-h-48 overflow-y-auto rounded-xl border border-line">
+            <ul className="divide-y divide-line text-sm">
+              {selectedItems.map((u) => (
+                <li key={u.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium" title={u.filename}>{u.filename}</span>
+                    <span className="text-[11px] text-muted">{nf.format(u.row_count ?? 0)} baris</span>
+                  </span>
+                  <span className="shrink-0 rounded-full border border-line bg-subtle px-2 py-0.5 text-[11px] font-semibold text-muted">
+                    {u.uploader}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <label className="flex flex-col gap-1.5 text-xs font-medium text-muted">
+            Alasan (opsional, berlaku untuk semua file)
+            <textarea
+              value={alasan}
+              onChange={(e) => setAlasan(e.target.value)}
+              rows={2}
+              maxLength={500}
+              placeholder="Contoh: salah unggah, data duplikat"
+              className={`${fieldClass} h-auto w-full py-2 font-normal`}
+            />
+          </label>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={removeBulk} disabled={busy || selectedItems.length === 0} className={btnDanger}>
+              <Icon name="trash" size={16} />
+              {busy ? "Menghapus..." : `Ya, hapus ${nf.format(selectedItems.length)} file`}
+            </button>
+            <button onClick={() => setBulkOpen(false)} disabled={busy} className={btnSecondary}>Batal</button>
           </div>
         </div>
       </Overlay>
     </div>
   );
 }
+
