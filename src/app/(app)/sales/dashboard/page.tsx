@@ -149,8 +149,13 @@ export default function SalesDashboardPage() {
   useEffect(() => {
     if (!allowed || !periode) return;
     let alive = true;
-    setLoading(true);
-    setError("");
+    // Ditunda satu microtask agar setState tidak dipanggil sinkron di badan effect
+    // (aturan react-hooks/set-state-in-effect), mengikuti pola halaman dashboard.
+    queueMicrotask(() => {
+      if (!alive) return;
+      setLoading(true);
+      setError("");
+    });
     const run =
       tab === "salesman" ? getSalesmen(periode, cabang || undefined).then((d) => alive && setSalesmen(d))
       : tab === "cabang" ? getCabangPerf(periode).then((d) => alive && setCabangRows(d))

@@ -136,6 +136,20 @@ export const getByDepartment = (f: Filters) => request<DeptRow[]>("/dashboard/by
 export const getTopEmployees = (f: Filters, metric: "terlambat" | "alpa") =>
   request<TopEmployee[]>("/dashboard/top-employees", undefined, { ...filterParams(f), metric, limit: 5 });
 
+// Kinerja Karyawan (PRD F26): peringkat per karyawan untuk HR, Audit, Sales/Marketing (IT tidak).
+export type PerformanceRow = {
+  nik: string; nama: string; departemen: string;
+  hari_kerja: number; hadir: number; dinas_luar: number; kehadiran_pct: number | null;
+  terlambat: number; menit_terlambat: number; tepat_waktu_pct: number | null;
+  izin: number; sakit: number; cuti: number; alpa: number; pulang_cepat: number;
+  jam_kerja: number; menit_lembur: number; dikoreksi: number;
+};
+export type PerformanceSort =
+  | "nama" | "departemen" | "kehadiran_pct" | "tepat_waktu_pct" | "terlambat"
+  | "menit_terlambat" | "alpa" | "jam_kerja" | "menit_lembur";
+export const getPerformance = (f: Filters, sort: PerformanceSort = "kehadiran_pct", order: "asc" | "desc" = "desc") =>
+  request<PerformanceRow[]>("/dashboard/performance", undefined, { ...filterParams(f), sort, order });
+
 export type EmployeeTrendPoint = { period: string; status: string; kehadiran_pct: number | null; terlambat: number };
 export type EmployeeDetail = {
   nik: string; nama: string; departemen: string;
@@ -374,6 +388,12 @@ export const getHolidays = (year: number) => request<Holiday[]>("/settings/holid
 export const addHoliday = (h: { tanggal: string; nama: string }) => request<Holiday>("/settings/holidays", jsonInit("POST", h));
 export const removeHoliday = (id: number) => request<void>(`/settings/holidays/${id}`, { method: "DELETE" });
 export const recalculate = (from: string, to: string) => request<{ updated: number }>("/settings/recalculate", jsonInit("POST", { from, to }));
+
+// Pembagi hari kerja Rekap Payroll (PRD F29). Default 25; dipakai untuk gaji_prorata_persen.
+export type PayrollSettings = { payroll_workdays: number };
+export const getPayrollSettings = () => request<PayrollSettings>("/settings/payroll");
+export const savePayrollSettings = (payroll_workdays: number) =>
+  request<PayrollSettings>("/settings/payroll", jsonInit("PUT", { payroll_workdays }));
 
 // ---------- Audit log (HR, IT, Audit) ----------
 export type AuditUser = { id: number; full_name: string; email: string };

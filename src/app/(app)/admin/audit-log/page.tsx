@@ -253,7 +253,9 @@ export default function AuditLogPage() {
   }, []);
 
   useEffect(() => {
-    load();
+    // Ditunda satu microtask agar setState tidak dipanggil sinkron di badan effect
+    // (aturan react-hooks/set-state-in-effect), mengikuti pola halaman dashboard.
+    queueMicrotask(load);
   }, [load]);
 
   function resetFilters() {

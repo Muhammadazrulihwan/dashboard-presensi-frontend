@@ -3,8 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
 import {
-  addHoliday, dateLabel, getHolidays, getShifts, nf, recalculate, removeHoliday, removeShift, saveShift,
-  type Holiday, type Shift, type ShiftInput,
+  addHoliday, dateLabel, getHolidays, getPayrollSettings, getShifts, nf, recalculate, removeHoliday, removeShift,
+  savePayrollSettings, saveShift, type Holiday, type Shift, type ShiftInput,
 } from "@/lib/api";
 
 const field = "h-10 rounded-xl border border-line bg-white px-3 text-sm text-ink placeholder:text-faint transition-colors hover:border-line-strong focus-visible:border-accent focus-visible:outline-2 focus-visible:outline-accent/30";
@@ -27,6 +27,10 @@ export default function PengaturanPage() {
   const [range, setRange] = useState({ from: "", to: "" });
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
+  // Pembagi hari kerja Rekap Payroll (PRD F29). Disimpan terpisah agar input tidak hilang saat gagal simpan.
+  const [payrollDays, setPayrollDays] = useState<number | null>(null);
+  const [payrollInput, setPayrollInput] = useState("25");
+  const [savingPayroll, setSavingPayroll] = useState(false);
 
   const ok = (text: string) => setNotice({ ok: true, text });
   const fail = (e: Error) => setNotice({ ok: false, text: e.message });
@@ -42,9 +46,18 @@ export default function PengaturanPage() {
   const loadHolidays = useCallback(() => {
     getHolidays(year).then(setHolidays).catch(fail);
   }, [year]);
+  const loadPayroll = useCallback(() => {
+    getPayrollSettings()
+      .then((s) => {
+        setPayrollDays(s.payroll_workdays);
+        setPayrollInput(String(s.payroll_workdays));
+      })
+      .catch(fail);
+  }, []);
 
   useEffect(loadShifts, [loadShifts]);
   useEffect(loadHolidays, [loadHolidays]);
+  useEffect(loadPayroll, [loadPayroll]);
 
   const setDraft = (kode: string, patch: Partial<ShiftInput>) => setDrafts((d) => ({ ...d, [kode]: { ...d[kode], ...patch } }));
 
@@ -81,6 +94,22 @@ export default function PengaturanPage() {
       .then((r) => ok(`${nf.format(r.updated)} baris dihitung ulang.`))
       .catch(fail)
       .finally(() => setBusy(false));
+  }
+
+  function savePayroll() {
+    const n = Number(payrollInput);
+    if (!Number.isInteger(n) || n < 1 || n > 31) {
+      return setNotice({ ok: false, text: "Pembagi hari kerja harus bilangan bulat 1 sampai 31." });
+    }
+    setSavingPayroll(true);
+    savePayrollSettings(n)
+      .then((s) => {
+        setPayrollDays(s.payroll_workdays);
+        setPayrollInput(String(s.payroll_workdays));
+        ok("Pembagi hari kerja disimpan. Rekap Payroll berikutnya memakai angka ini.");
+      })
+      .catch(fail)
+      .finally(() => setSavingPayroll(false));
   }
 
   return (
@@ -167,6 +196,36 @@ export default function PengaturanPage() {
             <label className="flex flex-col gap-1.5 text-xs text-muted">Tanggal<input type="date" className={field} value={newHoliday.tanggal} onChange={(e) => setNewHoliday({ ...newHoliday, tanggal: e.target.value })} /></label>
             <label className="flex flex-col gap-1.5 text-xs text-muted">Nama<input className={`${field} w-64`} placeholder="Contoh: Hari Kemerdekaan" value={newHoliday.nama} onChange={(e) => setNewHoliday({ ...newHoliday, nama: e.target.value })} /></label>
             <button onClick={addHol} className={SECONDARY}>Tambah hari libur</button>
+          </div>
+        </Panel>
+
+        <Panel
+          title="Pembagi hari kerja Rekap Payroll"
+          subtitle="Dipakai menghitung gaji prorata: hari dibayar dibagi pembagi ini, dikali 100. Sistem tidak menghitung nominal gaji"
+        >
+          <div className="flex flex-wrap items-end gap-4 px-6 pb-6 pt-3">
+            <label className="flex flex-col gap-1.5 text-xs text-muted">
+              Pembagi hari kerja
+              <input
+                type="number"
+                min={1}
+                max={31}
+                className={`${field} w-28`}
+                value={payrollInput}
+                onChange={(e) => setPayrollInput(e.target.value)}
+                aria-label="Pembagi hari kerja payroll"
+              />
+            </label>
+            <button
+              disabled={savingPayroll || payrollDays === null || Number(payrollInput) === payrollDays}
+              onClick={savePayroll}
+              className={PRIMARY}
+            >
+              {savingPayroll ? "Menyimpan..." : "Simpan"}
+            </button>
+            <p className="basis-full text-xs leading-5 text-muted sm:basis-auto">
+              Nilai awal 25 sesuai rekap gaji perusahaan. Mengubahnya memengaruhi kolom <span className="font-semibold text-ink">gaji_prorata_persen</span> pada Rekap Payroll.
+            </p>
           </div>
         </Panel>
 
