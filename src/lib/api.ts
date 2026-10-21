@@ -342,20 +342,24 @@ export type Salesman = {
   hari_kerja: number | null; hari_hadir: number | null; kehadiran_pct: number | null; terlambat_hari: number | null;
 };
 export type CabangRow = {
-  cabang: string; periode: string; total_penjualan: number; target_cabang: number | null; capaian_pct: number | null;
+  cabang: string; periode: string; granularitas?: string; total_penjualan: number; target_cabang: number | null; capaian_pct: number | null;
   sisa_target: number; jumlah_salesman: number; salesman_layak: number; salesman_tidak_layak: number;
   peringkat: number | null; status: "Tercapai" | "Perlu dikejar" | "Jauh dari target";
+  salesman_belum_layak?: string[]; sisa_hari_kerja?: number | null; kebutuhan_per_hari_kerja?: number | null;
 };
 export type PerusahaanData = {
-  periode: string; total_penjualan: number; target_perusahaan: number | null; capaian_pct: number | null;
-  sisa_target: number; jumlah_cabang: number; cabang_tercapai: number;
+  periode: string; granularitas?: string; total_penjualan: number; target_perusahaan: number | null; capaian_pct: number | null;
+  sisa_target: number; jumlah_cabang: number; cabang_tercapai: number; cabang_belum_tercapai?: string[];
 };
 
 export const salesTemplateUrl = `${API_URL}/sales/template`;
 export const getSalesMeta = () => request<SalesMeta>("/sales/meta");
 export const getSalesmen = (periode: string, cabang?: string) => request<Salesman[]>("/sales/salesman", undefined, { periode, cabang });
-export const getCabangPerf = (periode: string) => request<CabangRow[]>("/sales/cabang", undefined, { periode });
-export const getPerusahaanPerf = (periode: string) => request<PerusahaanData>("/sales/perusahaan", undefined, { periode });
+export type SalesGranularity = "bulan" | "kuartal" | "tahun";
+export const getCabangPerf = (periode: string, granularitas: SalesGranularity = "bulan") =>
+  request<CabangRow[]>("/sales/cabang", undefined, { periode, granularitas });
+export const getPerusahaanPerf = (periode: string, granularitas: SalesGranularity = "bulan") =>
+  request<PerusahaanData>("/sales/perusahaan", undefined, { periode, granularitas });
 export const confirmSales = (id: number, timpa = false) =>
   request<SalesConfirm>(`/sales/${id}/confirm`, { method: "POST" }, { timpa: timpa ? "true" : undefined });
 export const updateAssessment = (employeeId: string, periode: string, body: { status: AssessmentStatus; notes?: string }) =>

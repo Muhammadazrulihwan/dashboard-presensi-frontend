@@ -11,7 +11,7 @@ import Panel from "@/components/ui/Panel";
 import {
   canPerformance, getCabangPerf, getPerusahaanPerf, getSalesMeta, getSalesmen, isApprover, isSalesTeam,
   monthLabel, nf, pct, ratioPct, rupiah,
-  type CabangRow, type PerusahaanData, type SalesMeta, type Salesman,
+  type CabangRow, type PerusahaanData, type SalesGranularity, type SalesMeta, type Salesman,
 } from "@/lib/api";
 
 type Tab = "salesman" | "cabang" | "perusahaan";
@@ -95,9 +95,16 @@ const CABANG_COLUMNS: Column<CabangRow>[] = [
   { key: "target", label: "Target cabang", align: "right", value: (r) => r.target_cabang, render: (r) => <span className="num">{rupiah(r.target_cabang)}</span> },
   { key: "capaian", label: "Capaian", align: "right", value: (r) => r.capaian_pct, render: (r) => <Capaian v={r.capaian_pct} /> },
   { key: "sisa", label: "Sisa target", align: "right", value: (r) => r.sisa_target, render: (r) => <span className="num">{rupiah(r.sisa_target)}</span> },
+  { key: "kebutuhan", label: "Per hari kerja", align: "right", value: (r) => r.kebutuhan_per_hari_kerja ?? null,
+    render: (r) => r.kebutuhan_per_hari_kerja == null
+      ? <span className="text-faint">-</span>
+      : <span className="num" title={r.sisa_hari_kerja ? `Sisa ${r.sisa_hari_kerja} hari kerja` : undefined}>{rupiah(r.kebutuhan_per_hari_kerja)}</span> },
   { key: "salesman", label: "Salesman", align: "right", value: (r) => r.jumlah_salesman, render: (r) => <span className="num">{nf.format(r.jumlah_salesman)}</span> },
   { key: "layak", label: "Layak", align: "right", value: (r) => r.salesman_layak, render: (r) => <span className="num">{nf.format(r.salesman_layak)}</span> },
-  { key: "belum", label: "Belum layak", align: "right", value: (r) => r.salesman_tidak_layak, render: (r) => <span className="num">{nf.format(r.salesman_tidak_layak)}</span> },
+  { key: "belum", label: "Belum layak", align: "right", value: (r) => r.salesman_tidak_layak,
+    render: (r) => r.salesman_belum_layak && r.salesman_belum_layak.length > 0
+      ? <span className="num font-semibold text-status-alpa-text" title={r.salesman_belum_layak.join(", ")}>{nf.format(r.salesman_tidak_layak)}</span>
+      : <span className="num">{nf.format(r.salesman_tidak_layak)}</span> },
   { key: "status", label: "Status", value: (r) => r.status, render: (r) => <SalesBadge label={r.status} /> },
 ];
 
@@ -117,6 +124,16 @@ function PerusahaanTab({ d }: { d: PerusahaanData }) {
             <span className="num font-bold text-ink">{nf.format(d.cabang_tercapai)}</span> dari <span className="num font-bold text-ink">{nf.format(d.jumlah_cabang)}</span> cabang mencapai target.
           </p>
         </div>
+        {d.cabang_belum_tercapai && d.cabang_belum_tercapai.length > 0 && (
+          <div className="border-t border-line px-6 py-4">
+            <p className="text-xs font-medium text-muted">Cabang belum mencapai target (capaian terendah lebih dulu)</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {d.cabang_belum_tercapai.map((c) => (
+                <span key={c} className="rounded-full border border-status-terlambat-border bg-status-terlambat-bg px-2.5 py-0.5 text-xs font-semibold text-status-terlambat-text">{c}</span>
+              ))}
+            </div>
+          </div>
+        )}
       </Panel>
     </div>
   );
@@ -131,6 +148,8 @@ export default function SalesDashboardPage() {
   const [periode, setPeriode] = useState("");
   const [cabang, setCabang] = useState("");
   const [tab, setTab] = useState<Tab>("salesman");
+  // PRD F31/F35: agregasi kuartal dan tahun hanya untuk tab Cabang & Perusahaan.
+  const [granularitas, setGranularitas] = useState<SalesGranularity>("bulan");
   const [salesmen, setSalesmen] = useState<Salesman[]>([]);
   const [cabangRows, setCabangRows] = useState<CabangRow[]>([]);
   const [perusahaan, setPerusahaan] = useState<PerusahaanData | null>(null);
@@ -146,6 +165,26 @@ export default function SalesDashboardPage() {
       .catch((e) => setError(msg(e)));
   }, [allowed]);
 
+  // Tab Salesman memakai data bulanan; pilihan agregasi hanya berlaku di tab Cabang/Perusahaan.
+  useEffect(() => {
+    if (tab === "salesman" && granularitas !== "bulan") setGranularitas("bulan");
+  }, [tab, granularitas]);
+
+  // Opsi periode menyesuaikan granularitas: bulan (YYYY-MM), kuartal (YYYY-Qn), tahun (YYYY).
+  const periodeOptions = useMemo(() => {
+    const months = meta?.periodes ?? [];
+    if (granularitas === "bulan") return months;
+    if (granularitas === "kuartal") {
+      return Array.from(new Set(months.map((m) => `${m.slice(0, 4)}-Q${Math.floor((Number(m.slice(5, 7)) - 1) / 3) + 1}`))).sort().reverse();
+    }
+    return Array.from(new Set(months.map((m) => m.slice(0, 4)))).sort().reverse();
+  }, [meta, granularitas]);
+
+  // Saat granularitas berubah, pilih periode pertama yang valid.
+  useEffect(() => {
+    if (periodeOptions.length > 0 && !periodeOptions.includes(periode)) setPeriode(periodeOptions[0]);
+  }, [periodeOptions, periode]);
+
   useEffect(() => {
     if (!allowed || !periode) return;
     let alive = true;
@@ -158,11 +197,11 @@ export default function SalesDashboardPage() {
     });
     const run =
       tab === "salesman" ? getSalesmen(periode, cabang || undefined).then((d) => alive && setSalesmen(d))
-      : tab === "cabang" ? getCabangPerf(periode).then((d) => alive && setCabangRows(d))
-      : getPerusahaanPerf(periode).then((d) => alive && setPerusahaan(d));
+      : tab === "cabang" ? getCabangPerf(periode, granularitas).then((d) => alive && setCabangRows(d))
+      : getPerusahaanPerf(periode, granularitas).then((d) => alive && setPerusahaan(d));
     run.catch((e) => alive && setError(msg(e))).finally(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [allowed, periode, cabang, tab, reloadKey]);
+  }, [allowed, periode, cabang, tab, granularitas, reloadKey]);
 
   const summary = useMemo(() => ({
     layak: salesmen.filter((s) => s.status_kelayakan === "Layak").length,
@@ -188,10 +227,24 @@ export default function SalesDashboardPage() {
         description="Capaian penjualan terhadap target per salesman, cabang, dan perusahaan, beserta kelayakan performance dan status persetujuannya."
         actions={
           <>
+            {tab !== "salesman" && (
+              <label className="flex flex-col gap-1 text-xs font-medium text-muted">
+                Agregasi
+                <select className={fieldClass} value={granularitas} onChange={(e) => setGranularitas(e.target.value as SalesGranularity)} disabled={!meta || empty} aria-label="Agregasi periode">
+                  <option value="bulan">Bulanan</option>
+                  <option value="kuartal">Kuartal</option>
+                  <option value="tahun">Tahunan</option>
+                </select>
+              </label>
+            )}
             <label className="flex flex-col gap-1 text-xs font-medium text-muted">
               Periode
               <select className={fieldClass} value={periode} onChange={(e) => setPeriode(e.target.value)} disabled={!meta || empty} aria-label="Periode">
-                {meta?.periodes.map((p) => <option key={p} value={p}>{monthLabel(p)}</option>)}
+                {periodeOptions.map((p) => (
+                  <option key={p} value={p}>
+                    {granularitas === "bulan" ? monthLabel(p) : granularitas === "kuartal" ? p.replace("-", " ") : `Tahun ${p}`}
+                  </option>
+                ))}
               </select>
             </label>
             {tab === "salesman" && (
