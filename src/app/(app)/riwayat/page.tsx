@@ -4,7 +4,7 @@ import Icon from "@/components/ui/Icon";
 import Overlay from "@/components/ui/Overlay";
 import PageHeader from "@/components/ui/PageHeader";
 import { btnDanger, btnSecondary } from "@/components/ui/Button";
-import { deleteUpload, getUploads, nf, type UploadHistory } from "@/lib/api";
+import { dateLabel, deleteUpload, getUploads, nf, type UploadHistory } from "@/lib/api";
 import { useFilters } from "@/lib/filters";
 
 const STATUS = {
@@ -12,6 +12,13 @@ const STATUS = {
   failed: { label: "Gagal", cls: "border-status-alpa-border bg-status-alpa-bg text-status-alpa-text", dot: "bg-status-alpa-text" },
   deleted: { label: "Dihapus", cls: "border-line bg-subtle text-muted", dot: "bg-faint" },
 } as const;
+
+const SUMBER_LABEL: Record<string, string> = {
+  activity: "Activity",
+  report: "Report",
+  timeoff: "Time Off",
+  approval: "Approval",
+};
 const TABS = [
   { key: "saved", label: "Tersimpan" },
   { key: "failed", label: "Gagal" },
@@ -111,7 +118,31 @@ export default function RiwayatPage() {
                           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-accent-ring bg-accent-soft text-accent" aria-hidden="true">
                             <Icon name="file" size={17} />
                           </span>
-                          <span className="font-semibold">{u.filename}</span>
+                          <span className="min-w-0">
+                            <span className="block truncate font-semibold" title={u.filename}>{u.filename}</span>
+                            {u.date_from && u.date_to ? (
+                              <span className="block text-[11px] text-muted">
+                                Periode {dateLabel(u.date_from)} – {dateLabel(u.date_to)}
+                              </span>
+                            ) : (
+                              <span className="block text-[11px] text-faint">Periode tidak tercatat</span>
+                            )}
+                            {u.sumber && u.sumber.length > 0 && (
+                              <span className="mt-1 flex flex-wrap gap-1">
+                                {u.sumber.map((s) => (
+                                  <span
+                                    key={s.jenis_sumber}
+                                    title={`${s.nama_file}${s.warnings.length ? ` · ${s.warnings.length} peringatan` : ""}`}
+                                    className="inline-flex items-center gap-1 rounded-md border border-line bg-subtle px-1.5 py-0.5 text-[11px] font-semibold text-muted"
+                                  >
+                                    {SUMBER_LABEL[s.jenis_sumber] ?? s.jenis_sumber}
+                                    <span className="num text-ink">{nf.format(s.row_count ?? 0)}</span>
+                                    {s.warnings.length > 0 && <span className="text-status-terlambat-text">!</span>}
+                                  </span>
+                                ))}
+                              </span>
+                            )}
+                          </span>
                         </div>
                       </td>
                       <td className="px-4 text-[13px]">{u.uploader}</td>

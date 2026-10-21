@@ -59,9 +59,14 @@ export type PreviewResponse = {
   preview_rows: Record<string, unknown>[]; errors: ValidationError[]; error_count: number; can_save: boolean;
   conflict_count: number; date_from: string | null; date_to: string | null; employee_count: number; mapped_columns: string[];
 };
+export type UploadSourceFile = {
+  jenis_sumber: string; nama_file: string; row_count: number | null;
+  date_from: string | null; date_to: string | null; warnings: string[];
+};
 export type UploadHistory = {
   id: number; filename: string; uploader: string; created_at: string; row_count: number | null;
   status: "saved" | "failed" | "deleted";
+  date_from?: string | null; date_to?: string | null; sumber?: UploadSourceFile[];
 };
 export type ConflictMode = "overwrite" | "skip";
 export type ConfirmResponse = { upload: UploadHistory; inserted: number; overwritten: number; skipped: number };
