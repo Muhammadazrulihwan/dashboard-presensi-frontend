@@ -394,6 +394,25 @@ export function salesPreview(file: File, onProgress: (pct: number) => void): Pro
 export const rupiah = (n: number | null) => (n === null ? "-" : `Rp${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(n)}`);
 export const ratioPct = (a: number | null, b: number) => (a === null || b <= 0 ? null : (a / b) * 100);
 
+// ---------- Master karyawan (PRD F15) ----------
+export type EmployeeRow = {
+  employee_id: string; nama: string; jabatan: string | null; organisasi: string | null;
+  cabang: string | null; status_kerja: string | null; resign: boolean; updated_at: string | null;
+};
+export type EmployeePage = { items: EmployeeRow[]; total: number; page: number; page_size: number };
+export type EmployeeMeta = { organisasi: string[]; cabang: string[]; resign_count: number; total: number };
+export type EmployeeQuery = {
+  q?: string; organisasi?: string; cabang?: string; resign?: boolean; page?: number; page_size?: number;
+};
+export const getEmployees = (o: EmployeeQuery = {}) =>
+  request<EmployeePage>("/employees", undefined, {
+    q: o.q, organisasi: o.organisasi, cabang: o.cabang,
+    resign: o.resign === undefined ? undefined : (o.resign ? "true" : "false"),
+    page: o.page, page_size: o.page_size,
+  });
+export const getEmployeeMeta = () => request<EmployeeMeta>("/employees/meta");
+export const getEmployee = (id: string) => request<EmployeeRow>(`/employees/${encodeURIComponent(id)}`);
+
 // ---------- Pengaturan ----------
 export const getShifts = () => request<Shift[]>("/settings/shifts");
 export const saveShift = (kode: string, s: ShiftInput) => request<Shift>(`/settings/shifts/${encodeURIComponent(kode)}`, jsonInit("PUT", s));

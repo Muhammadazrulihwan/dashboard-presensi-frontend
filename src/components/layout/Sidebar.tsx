@@ -11,6 +11,7 @@ type Show = "dashboard" | "hr" | "it" | "auditlog" | "performance" | "sales" | "
 const MAIN: { href: string; label: string; icon: IconName; show: Show }[] = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard", show: "dashboard" },
   { href: "/presensi", label: "Data Presensi", icon: "calendar", show: "dashboard" },
+  { href: "/karyawan", label: "Master Karyawan", icon: "users", show: "dashboard" },
   { href: "/kinerja", label: "Kinerja Karyawan", icon: "trending", show: "performance" },
   { href: "/upload", label: "Upload Data", icon: "upload", show: "hr" },
   { href: "/upload-paket", label: "Upload Paket 4 Sumber", icon: "cloudUpload", show: "hr" },
