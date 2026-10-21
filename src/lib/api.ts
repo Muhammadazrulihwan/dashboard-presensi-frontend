@@ -258,11 +258,12 @@ export type ArchivedFile = {
   checksum: string; checksum_terverifikasi: boolean; pengunggah: string | null;
   periode_awal: string | null; periode_akhir: string | null; status: ArchiveStatus;
   created_at: string; dihapus_at: string | null; alasan_hapus: string | null; bisa_dihapus_permanen: boolean;
+  employee_ids: string[];
 };
 export type ArchivedFilePage = { items: ArchivedFile[]; total: number; page: number; page_size: number };
 export type ArchiveQuery = {
   status?: ArchiveStatus | "semua"; jenis_sumber?: string; pengunggah_id?: number;
-  q?: string; dari?: string; sampai?: string; page?: number; page_size?: number;
+  q?: string; employee_id?: string; dari?: string; sampai?: string; page?: number; page_size?: number;
 };
 export const getArchive = (o: ArchiveQuery = {}) => request<ArchivedFilePage>("/archive", undefined, o);
 export const getArchiveUploaders = () => request<{ id: number; full_name: string; email: string }[]>("/archive/uploaders");

@@ -41,6 +41,7 @@ export default function ArsipPage() {
   const [tab, setTab] = useState<ArchiveStatus>("aktif");
   const [jenis, setJenis] = useState("");
   const [q, setQ] = useState("");
+  const [employeeId, setEmployeeId] = useState("");
   const [dari, setDari] = useState("");
   const [sampai, setSampai] = useState("");
   const [uploaders, setUploaders] = useState<{ id: number; full_name: string; email: string }[]>([]);
@@ -57,13 +58,14 @@ export default function ArsipPage() {
   const load = useCallback(() => {
     const query: ArchiveQuery = {
       status: tab, jenis_sumber: jenis || undefined, q: q.trim() || undefined,
+      employee_id: employeeId.trim() || undefined,
       dari: dari || undefined, sampai: sampai || undefined,
       pengunggah_id: pengunggah ? Number(pengunggah) : undefined, page_size: 50,
     };
     getArchive(query)
       .then((r) => { setData({ items: r.items, total: r.total }); setError(""); })
       .catch((e: Error) => setError(e.message));
-  }, [tab, jenis, q, dari, sampai, pengunggah]);
+  }, [tab, jenis, q, employeeId, dari, sampai, pengunggah]);
 
   useEffect(load, [load]);
 
@@ -105,11 +107,15 @@ export default function ArsipPage() {
           ))}
         </div>
 
-        <Panel title="Pencarian" subtitle="Saring menurut jenis, pengunggah, nama file, dan rentang tanggal data">
-          <div className="grid gap-4 px-6 pb-5 pt-3 sm:grid-cols-2 lg:grid-cols-5">
+        <Panel title="Pencarian" subtitle="Saring menurut jenis, pengunggah, nama file, Employee ID, dan rentang tanggal data">
+          <div className="grid gap-4 px-6 pb-5 pt-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <label className="flex flex-col gap-1.5 text-xs font-medium text-muted">
               Nama file
               <input className={`${fieldClass} w-full`} placeholder="Cari nama file" value={q} onChange={(e) => setQ(e.target.value)} />
+            </label>
+            <label className="flex flex-col gap-1.5 text-xs font-medium text-muted">
+              Employee ID
+              <input className={`${fieldClass} w-full`} placeholder="Contoh: LS019" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} />
             </label>
             <label className="flex flex-col gap-1.5 text-xs font-medium text-muted">
               Jenis
@@ -145,12 +151,13 @@ export default function ArsipPage() {
             </span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm">
+            <table className="w-full min-w-[1000px] text-sm">
               <thead>
                 <tr className="h-11 border-y border-line bg-paper text-left text-[11px] font-bold uppercase tracking-[0.04em] text-muted">
                   <th className="pl-6 pr-3.5">File</th>
                   <th className="px-3.5">Jenis</th>
                   <th className="px-3.5">Periode data</th>
+                  <th className="px-3.5">Employee ID</th>
                   <th className="px-3.5">Pengunggah</th>
                   <th className="px-3.5">Ukuran</th>
                   <th className="px-3.5">Checksum</th>
@@ -173,6 +180,20 @@ export default function ArsipPage() {
                     <td className="px-3.5 text-[13px] capitalize">{f.jenis_sumber}</td>
                     <td className="whitespace-nowrap px-3.5 text-[13px] text-muted">
                       {f.periode_awal && f.periode_akhir ? `${dateLabel(f.periode_awal)} – ${dateLabel(f.periode_akhir)}` : "-"}
+                    </td>
+                    <td className="px-3.5">
+                      {f.employee_ids.length === 0 ? (
+                        <span className="text-faint">-</span>
+                      ) : (
+                        <span className="num inline-flex flex-wrap gap-1" title={f.employee_ids.join(", ")}>
+                          {f.employee_ids.slice(0, 3).map((id) => (
+                            <span key={id} className="rounded-md bg-subtle px-1.5 py-0.5 text-[11px] font-semibold text-muted">{id}</span>
+                          ))}
+                          {f.employee_ids.length > 3 && (
+                            <span className="rounded-md bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold text-accent">+{f.employee_ids.length - 3}</span>
+                          )}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3.5 text-[13px]">{f.pengunggah ?? "-"}</td>
                     <td className="num px-3.5 text-[13px]">{sizeLabel(f.ukuran)}</td>
@@ -223,10 +244,10 @@ export default function ArsipPage() {
                   </tr>
                 ))}
                 {data && data.items.length === 0 && (
-                  <tr><td colSpan={8} className="px-6 py-14 text-center text-muted">Tidak ada file pada tab ini.</td></tr>
+                  <tr><td colSpan={9} className="px-6 py-14 text-center text-muted">Tidak ada file pada tab ini.</td></tr>
                 )}
                 {!data && !error && (
-                  <tr><td colSpan={8} className="px-6 py-14 text-center text-muted">Memuat data...</td></tr>
+                  <tr><td colSpan={9} className="px-6 py-14 text-center text-muted">Memuat data...</td></tr>
                 )}
               </tbody>
             </table>
