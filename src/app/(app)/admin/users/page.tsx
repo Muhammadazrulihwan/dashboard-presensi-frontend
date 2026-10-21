@@ -139,7 +139,7 @@ export default function AdminUsersPage() {
           <div className="flex flex-wrap items-end gap-4 px-6 pb-6 pt-3">
             <label className="flex flex-col gap-1.5 text-xs text-muted">Nama<input className={`${fieldClass} w-52`} value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></label>
             <label className="flex flex-col gap-1.5 text-xs text-muted">Email<input type="email" className={`${fieldClass} w-56`} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
-            <label className="flex flex-col gap-1.5 text-xs text-muted">Password<input type="password" className={`${fieldClass} w-44`} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
+            <label className="flex flex-col gap-1.5 text-xs text-muted">Password<input type="password" autoComplete="new-password" className={`${fieldClass} w-44`} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
             <label className="flex flex-col gap-1.5 text-xs text-muted">
               Departemen
               <select className={fieldClass} value={form.departemen} onChange={(e) => setForm({ ...form, departemen: e.target.value })}>

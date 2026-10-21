@@ -37,6 +37,8 @@ const ACTION_LABELS: Record<string, string> = {
   upload_preview: "Periksa File Presensi",
   upload_confirm: "Simpan File Presensi",
   upload_delete: "Hapus Upload Presensi",
+  package_preview: "Periksa Paket Empat Sumber",
+  package_confirm: "Simpan Paket Empat Sumber",
   // Kinerja penjualan (Sales/Marketing)
   sales_preview: "Periksa File Penjualan",
   sales_confirm: "Simpan File Penjualan",
@@ -55,6 +57,15 @@ const ACTION_LABELS: Record<string, string> = {
   // Pengaturan (HR)
   shift_upsert: "Simpan Shift",
   recalculate: "Hitung Ulang Presensi",
+  payroll_settings_update: "Ubah Pembagi Hari Kerja Payroll",
+  // Tutup periode (HR)
+  period_close: "Tutup Periode",
+  period_reopen: "Buka Kembali Periode",
+  // Arsip file (HR dan Audit)
+  archive_download: "Unduh Arsip",
+  archive_trash: "Pindah Arsip ke Tempat Sampah",
+  archive_restore: "Pulihkan Arsip",
+  archive_purge: "Hapus Arsip Permanen",
 };
 
 // Badge warna per kategori aksi
@@ -63,9 +74,11 @@ function actionBadge(action: string): string {
   if (action.startsWith("login_")) return "border-status-alpa-border bg-status-alpa-bg text-status-alpa-text";
   if (action.includes("delete") || action.includes("deactivate")) return "border-status-terlambat-border bg-status-terlambat-bg text-status-terlambat-text";
   if (action.startsWith("export_")) return "border-status-dinas-border bg-status-dinas-bg text-status-dinas-text";
-  if (action.startsWith("upload_")) return "border-status-hadir-border bg-status-hadir-bg text-status-hadir-text";
+  if (action.startsWith("upload_") || action.startsWith("package_")) return "border-status-hadir-border bg-status-hadir-bg text-status-hadir-text";
   if (action.startsWith("sales_")) return "border-status-izin-border bg-status-izin-bg text-status-izin-text";
   if (action.startsWith("user_")) return "border-status-izin-border bg-status-izin-bg text-status-izin-text";
+  if (action.startsWith("period_")) return "border-status-cuti-border bg-status-cuti-bg text-status-cuti-text";
+  if (action.startsWith("archive_")) return "border-status-sakit-border bg-status-sakit-bg text-status-sakit-text";
   return "border-line bg-subtle text-muted";
 }
 
@@ -94,6 +107,17 @@ function formatDetail(action: string, detail: Record<string, unknown> | null): s
     return `#${s("upload_id")} · ${parts.join(", ")}`;
   }
   if (action === "upload_delete") return s("filename") || `#${s("upload_id")}`;
+  if (action === "package_preview") {
+    const sumber = Array.isArray(detail.sumber) ? (detail.sumber as string[]).join(", ") : s("sumber");
+    return `#${s("upload_id")} · ${sumber || "-"} · ${nf.format(n("rekap_rows"))} baris${n("errors") ? `, ${nf.format(n("errors"))} masalah` : ""}`;
+  }
+  if (action === "package_confirm") {
+    const parts = [`${nf.format(n("inserted"))} baris rekap`];
+    if (n("overwritten")) parts.push(`${nf.format(n("overwritten"))} ditimpa`);
+    if (n("skipped")) parts.push(`${nf.format(n("skipped"))} dilewati`);
+    if (n("employees")) parts.push(`${nf.format(n("employees"))} karyawan`);
+    return `#${s("upload_id")} · ${parts.join(", ")}`;
+  }
 
   // Kinerja penjualan
   if (action === "sales_preview") {
@@ -116,6 +140,17 @@ function formatDetail(action: string, detail: Record<string, unknown> | null): s
     return `${s("kode")} · ${s("jam_masuk")}–${s("jam_pulang")}${detail.toleransi_menit != null ? `, toleransi ${nf.format(n("toleransi_menit"))} mnt` : ""}`;
   }
   if (action === "recalculate") return `${period()} · ${nf.format(n("rows"))} baris`;
+  if (action === "payroll_settings_update") return `Pembagi hari kerja: ${nf.format(n("payroll_workdays"))}`;
+
+  // Tutup/buka periode
+  if (action === "period_close" || action === "period_reopen") {
+    return `${s("periode") || "-"}${s("alasan") ? ` · ${s("alasan")}` : ""}`;
+  }
+
+  // Arsip file
+  if (action.startsWith("archive_")) {
+    return `${s("nama") || "-"}${s("alasan") ? ` · ${s("alasan")}` : ""}`;
+  }
 
   // Export
   if (action.startsWith("export_")) {
