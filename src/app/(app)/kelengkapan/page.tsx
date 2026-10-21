@@ -96,7 +96,16 @@ function SelisihTable({ rows, empty }: { rows: CompletenessSelisih[]; empty: str
                 <div className="num text-[11px] leading-4 text-muted">{r.nik}</div>
               </td>
               <td className="whitespace-nowrap px-3.5 text-[13px] text-status-dinas-text">{r.departemen}</td>
-              <td className="px-3.5 pr-6 text-[13px] text-status-terlambat-text">{r.selisih}</td>
+              <td className="px-3.5 pr-6 text-[13px] text-status-terlambat-text">
+                <ul className="space-y-0.5">
+                  {r.selisih.split("; ").filter(Boolean).map((bagian, j) => (
+                    <li key={j} className="flex items-start gap-1.5">
+                      <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-status-terlambat-text" aria-hidden="true" />
+                      <span>{bagian}</span>
+                    </li>
+                  ))}
+                </ul>
+              </td>
             </tr>
           ))}
         </tbody>
