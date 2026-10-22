@@ -4,27 +4,9 @@ import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
 import Icon from "@/components/ui/Icon";
 import { btnSecondary, fieldClass } from "@/components/ui/Button";
-import { API_URL, dateLabel, getAuditActions, getAuditUsers, nf, type AuditAction, type AuditUser } from "@/lib/api";
+import { dateLabel, getAuditActions, getAuditLog, getAuditUsers, nf, type AuditAction, type AuditLogPage, type AuditUser } from "@/lib/api";
 import { timeLabel } from "@/lib/format";
 import { useDismiss } from "@/lib/useDismiss";
-
-type AuditLogItem = {
-  id: number;
-  user_id: number | null;
-  user_name: string | null;
-  user_email: string | null;
-  action: string;
-  detail: Record<string, unknown> | null;
-  ip_address: string | null;
-  created_at: string;
-};
-
-type AuditLogResponse = {
-  items: AuditLogItem[];
-  total: number;
-  page: number;
-  page_size: number;
-};
 
 // Label aksi dalam Bahasa Indonesia. Harus sama dengan action yang ditulis audit.log()
 // di backend (lihat backend/app/routers/audit.py ACTION_LABELS).
@@ -251,7 +233,7 @@ function UserFilter({
 }
 
 export default function AuditLogPage() {
-  const [data, setData] = useState<AuditLogResponse | null>(null);
+  const [data, setData] = useState<AuditLogPage | null>(null);
   const [users, setUsers] = useState<AuditUser[]>([]);
   const [actions, setActions] = useState<AuditAction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -268,20 +250,15 @@ export default function AuditLogPage() {
     setLoading(true);
     setError(null);
 
-    const params = new URLSearchParams();
-    if (filterUser) params.set("user_id", filterUser);
-    if (filterAction) params.set("action", filterAction);
-    if (filterFrom) params.set("from_date", filterFrom);
-    if (filterTo) params.set("to_date", filterTo);
-    params.set("page", String(page));
-    params.set("page_size", "50");
-
-    fetch(`${API_URL}/admin/audit-log?${params}`, { credentials: "include" })
-      .then((r) => {
-        if (!r.ok) throw new Error("Gagal memuat audit log");
-        return r.json();
-      })
-      .then((d: AuditLogResponse) => setData(d))
+    getAuditLog({
+      user_id: filterUser ? Number(filterUser) : undefined,
+      action: filterAction || undefined,
+      from_date: filterFrom || undefined,
+      to_date: filterTo || undefined,
+      page,
+      page_size: 50,
+    })
+      .then((d) => setData(d))
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, [filterUser, filterAction, filterFrom, filterTo, page]);

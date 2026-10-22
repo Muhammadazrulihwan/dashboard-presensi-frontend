@@ -8,7 +8,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
 import { btnSecondary } from "@/components/ui/Button";
 import {
-  canPerformance, dateLabel, formatMinutes, getPerformance, nf, num1, pct,
+  canPerformance, dateLabel, employeePdfUrl, formatMinutes, getPerformance, nf, num1, pct,
   type Filters, type PerformanceRow,
 } from "@/lib/api";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -132,6 +132,14 @@ export default function KinerjaPage() {
       <PageHeader
         title="Kinerja Karyawan"
         description="Indikator kehadiran, ketepatan waktu, jam kerja, dan lembur per karyawan pada periode aktif"
+        actions={
+          filters ? (
+            <a href={employeePdfUrl(filters)} className={btnSecondary}>
+              <Icon name="download" size={16} />
+              Export rekap individu
+            </a>
+          ) : undefined
+        }
       />
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <p className="text-[13px] text-muted">Periode <span className="font-semibold text-ink">{periodText(filters ?? { from: "", to: "", departemen: "", status: "", karyawan: "" })}</span></p>

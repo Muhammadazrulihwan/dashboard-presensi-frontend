@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import AssessmentModal from "@/components/sales/AssessmentModal";
 import SalesBadge, { ProgressBar } from "@/components/sales/Badges";
@@ -9,9 +9,9 @@ import { btnPrimary, btnSecondary, fieldClass } from "@/components/ui/Button";
 import PageHeader from "@/components/ui/PageHeader";
 import Panel from "@/components/ui/Panel";
 import {
-  canPerformance, getCabangPerf, getPerusahaanPerf, getSalesMeta, getSalesmen, isApprover, isSalesTeam,
-  monthLabel, nf, pct, ratioPct, rupiah,
-  type CabangRow, type PerusahaanData, type SalesGranularity, type SalesMeta, type Salesman,
+  canPerformance, deleteSalesUpload, getCabangPerf, getPerusahaanPerf, getSalesMeta, getSalesUploads, getSalesmen,
+  isApprover, isSalesTeam, monthLabel, nf, pct, ratioPct, rupiah,
+  type CabangRow, type PerusahaanData, type SalesGranularity, type SalesMeta, type Salesman, type SalesUploadRow,
 } from "@/lib/api";
 
 type Tab = "salesman" | "cabang" | "perusahaan";
@@ -157,6 +157,9 @@ export default function SalesDashboardPage() {
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Salesman | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  // Pengelolaan upload penjualan (khusus Sales/Marketing): hapus membersihkan penjualan, target, penilaian.
+  const [uploads, setUploads] = useState<SalesUploadRow[] | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
 
   useEffect(() => {
     if (!allowed) return;
@@ -164,6 +167,21 @@ export default function SalesDashboardPage() {
       .then((m) => { setMeta(m); setPeriode(m.periodes[0] ?? ""); })
       .catch((e) => setError(msg(e)));
   }, [allowed]);
+
+  const loadUploads = useCallback(() => {
+    if (!isSalesTeam(user)) return;
+    getSalesUploads().then(setUploads).catch(() => setUploads([]));
+  }, [user]);
+  useEffect(loadUploads, [loadUploads, reloadKey]);
+
+  function removeUpload(row: SalesUploadRow) {
+    if (!window.confirm(`Hapus upload "${row.filename}"? Data penjualan, target, dan penilaian periode ${row.periode.join(", ")} akan dibersihkan. File asli masuk tempat sampah arsip dan masih bisa dipulihkan.`)) return;
+    setDeleting(row.id);
+    deleteSalesUpload(row.id)
+      .then(() => { setReloadKey((k) => k + 1); })
+      .catch((e) => setError(msg(e)))
+      .finally(() => setDeleting(null));
+  }
 
   // Tab Salesman memakai data bulanan; pilihan agregasi hanya berlaku di tab Cabang/Perusahaan.
   useEffect(() => {
@@ -322,6 +340,49 @@ export default function SalesDashboardPage() {
           onClose={() => setSelected(null)}
           onSaved={() => { setSelected(null); setReloadKey((k) => k + 1); }}
         />
+      )}
+
+      {isSalesTeam(user) && uploads && uploads.length > 0 && (
+        <div className="mt-5">
+          <Panel title="Kelola Upload Penjualan" subtitle="Hapus upload membersihkan data penjualan, target, dan penilaian. File asli dipindah ke tempat sampah arsip.">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-sm">
+                <thead>
+                  <tr className="h-11 border-y border-line bg-paper text-left text-[11px] font-bold uppercase tracking-[0.04em] text-muted">
+                    <th className="pl-6 pr-3.5">File</th>
+                    <th className="px-3.5">Periode</th>
+                    <th className="px-3.5">Pengunggah</th>
+                    <th className="px-3.5">Waktu</th>
+                    <th className="px-3.5">Baris</th>
+                    <th className="px-3.5 pr-6 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {uploads.map((u) => (
+                    <tr key={u.id} className="h-14 border-b border-subtle last:border-b-0 hover:bg-paper">
+                      <td className="max-w-[240px] truncate pl-6 pr-3.5 font-semibold" title={u.filename}>{u.filename}</td>
+                      <td className="num px-3.5 text-[13px]">{u.periode.join(", ") || "-"}</td>
+                      <td className="px-3.5 text-[13px]">{u.uploader}</td>
+                      <td className="whitespace-nowrap px-3.5 text-[13px] text-muted">
+                        {new Date(u.created_at).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
+                      </td>
+                      <td className="num px-3.5 text-[13px]">{nf.format(u.row_count ?? 0)}</td>
+                      <td className="px-3.5 pr-6 text-right">
+                        <button
+                          onClick={() => removeUpload(u)}
+                          disabled={deleting === u.id}
+                          className="rounded-lg px-2.5 py-1.5 text-[13px] font-semibold text-status-alpa-text transition-colors hover:bg-status-alpa-bg disabled:opacity-40"
+                        >
+                          {deleting === u.id ? "Menghapus..." : "Hapus"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        </div>
       )}
     </div>
   );

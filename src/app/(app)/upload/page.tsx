@@ -173,9 +173,18 @@ export default function UploadPage() {
   return (
     <div>
       <PageHeader
-        title="Upload Data Presensi"
+        title="Upload Data Presensi (Template Lama)"
         description="Unggah satu atau beberapa file CSV atau XLSX sekaligus (misalnya satu file per minggu), periksa isinya, lalu simpan semuanya. Keterlambatan, durasi, dan lembur dihitung otomatis."
       />
+
+      <p className="mb-5 flex items-start gap-2 rounded-xl border border-line bg-white px-4 py-3 text-[13px] leading-5 text-muted">
+        <Icon name="info" size={16} className="mt-0.5 shrink-0 text-accent" />
+        <span>
+          Halaman ini memakai template presensi tunggal (legacy). Untuk menggabungkan Activity, Report Attendance,
+          Time Off, dan Approval menjadi Rekap Absensi terpadu, gunakan{" "}
+          <Link href="/upload-paket" className="font-semibold text-accent hover:underline">Upload Paket 4 Sumber</Link>.
+        </span>
+      </p>
 
       <div className="space-y-5">
         <Stepper current={current} />

@@ -9,9 +9,18 @@ export default function Overlay({
   open: boolean; onClose: () => void; title: string; side?: "center" | "right"; children: React.ReactNode; width?: number;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  // onClose disimpan di ref supaya effect di bawah hanya bergantung pada `open`.
+  // Sebelumnya effect bergantung pada `onClose`; karena pemanggil mengirim arrow function inline,
+  // setiap re-render (mis. saat mengetik di dalam dialog) membuat effect jalan ulang dan
+  // closeRef.current.focus() mencuri fokus dari input ke tombol X.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
-    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const key = (e: KeyboardEvent) => e.key === "Escape" && onCloseRef.current();
     document.addEventListener("keydown", key);
     closeRef.current?.focus();
     const prev = document.body.style.overflow;
@@ -20,7 +29,7 @@ export default function Overlay({
       document.removeEventListener("keydown", key);
       document.body.style.overflow = prev;
     };
-  }, [open, onClose]);
+  }, [open]);
   if (!open) return null;
 
   const panel =

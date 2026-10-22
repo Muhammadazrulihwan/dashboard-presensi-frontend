@@ -107,6 +107,40 @@ export default function DataTable({ filters, title = "Log Presensi & Anomali Har
         cell: (c) => <span className={`num text-[13px] ${c.getValue() ? "font-medium text-ink" : "text-faint"}`}>{c.getValue() ?? "--:--"}</span>,
       }),
       col.accessor("status", { header: "Status", cell: (c) => <StatusBadge status={c.getValue()} lateMinutes={c.row.original.menit_terlambat} /> }),
+      col.display({
+        id: "sumber",
+        header: "Sumber / Izin",
+        cell: (c) => {
+          const r = c.row.original;
+          const izin = r.izin_nama || r.izin_kode;
+          return (
+            <div className="flex flex-wrap items-center gap-1">
+              {izin && (
+                <span
+                  className="rounded-md border border-line bg-subtle px-1.5 py-0.5 text-[11px] font-semibold text-muted"
+                  title={[r.izin_kode, r.izin_nama, r.izin_tipe].filter(Boolean).join(" · ")}
+                >
+                  {izin}{r.izin_tipe ? ` · ${r.izin_tipe}` : ""}
+                </span>
+              )}
+              {r.sumber && (
+                <span
+                  className="rounded-md border border-accent-ring bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold text-accent"
+                  title={r.jumlah_ketukan != null ? `${r.jumlah_ketukan} ketukan` : undefined}
+                >
+                  {r.sumber}
+                  {r.jumlah_ketukan != null ? ` · ${r.jumlah_ketukan}` : ""}
+                </span>
+              )}
+              {r.clock_in_hilang && <span className="rounded-md bg-status-alpa-bg px-1.5 py-0.5 text-[11px] font-semibold text-status-alpa-text">in hilang</span>}
+              {r.clock_out_hilang && <span className="rounded-md bg-status-alpa-bg px-1.5 py-0.5 text-[11px] font-semibold text-status-alpa-text">out hilang</span>}
+              {r.dikoreksi && <span className="rounded-md border border-accent-ring bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold text-accent" title={r.koreksi_alasan ?? ""}>dikoreksi</span>}
+              {r.selisih_report && <span className="rounded-md bg-status-terlambat-bg px-1.5 py-0.5 text-[11px] font-semibold text-status-terlambat-text" title={r.selisih_report}>selisih</span>}
+              {!izin && !r.sumber && !r.clock_in_hilang && !r.clock_out_hilang && !r.dikoreksi && !r.selisih_report && <span className="text-faint">-</span>}
+            </div>
+          );
+        },
+      }),
       col.accessor("menit_terlambat", {
         header: "Deviasi",
         cell: (c) =>

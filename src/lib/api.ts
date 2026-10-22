@@ -49,6 +49,8 @@ export type AttendanceRow = {
   durasi_kerja: number | null; status: string; keterangan: string | null;
   jam_kerja_nyata?: number | null; dikoreksi?: boolean; koreksi_alasan?: string | null;
   koreksi_approver?: string | null; clock_out_hilang?: boolean; selisih_report?: string | null;
+  sumber?: string | null; jumlah_ketukan?: number | null; clock_in_hilang?: boolean;
+  izin_kode?: string | null; izin_nama?: string | null; izin_tipe?: string | null;
 };
 export type RecordsPage = { items: AttendanceRow[]; total: number; page: number; page_size: number };
 export type SortKey = "tanggal" | "nik" | "nama" | "departemen" | "jam_masuk" | "menit_terlambat" | "durasi_kerja" | "status";
@@ -88,6 +90,11 @@ function onUnauthorized(path: string) {
   window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}&expired=1`;
 }
 const NETWORK_MSG = `Tidak dapat terhubung ke server. Pastikan backend berjalan di ${API_URL}`;
+// Batas waktu request agar UI tidak menggantung selamanya bila backend atau jaringan macet.
+const REQUEST_TIMEOUT_MS = 30_000; // request JSON biasa (dashboard, tabel, pengaturan, dll.)
+const UPLOAD_TIMEOUT_MS = 180_000; // unggah, periksa, dan simpan file Excel/CSV yang bisa besar
+const timeoutMsg = (ms: number) =>
+  `Server tidak merespons dalam ${Math.round(ms / 1000)} detik. Periksa koneksi ke backend lalu coba lagi.`;
 
 function detailOf(body: unknown): string | null {
   const d = (body as { detail?: unknown } | null)?.detail;
@@ -102,18 +109,31 @@ const jsonInit = (method: string, body?: unknown): RequestInit => ({
   body: body === undefined ? undefined : JSON.stringify(body),
 });
 
-async function request<T>(path: string, init?: RequestInit, params?: Record<string, string | number | undefined>): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  params?: Record<string, string | number | undefined>,
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
+): Promise<T> {
   const q = new URLSearchParams();
   Object.entries(params ?? {}).forEach(([k, v]) => {
     if (v !== undefined && v !== "") q.set(k, String(v));
   });
   const qs = q.toString();
   let res: Response;
+  // Batas waktu: batalkan request bila server tidak merespons, agar promise tidak menggantung.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     // credentials: "include" agar cookie sesi (httpOnly) ikut terkirim ke API.
-    res = await fetch(`${API_URL}${path}${qs ? `?${qs}` : ""}`, { cache: "no-store", credentials: "include", ...init });
+    res = await fetch(`${API_URL}${path}${qs ? `?${qs}` : ""}`, {
+      cache: "no-store", credentials: "include", signal: ctrl.signal, ...init,
+    });
   } catch {
+    if (ctrl.signal.aborted) throw new ApiError(timeoutMsg(timeoutMs), 408);
     throw new ApiError(NETWORK_MSG);
+  } finally {
+    clearTimeout(timer);
   }
   if (!res.ok) {
     if (res.status === 401) onUnauthorized(path);
@@ -232,6 +252,7 @@ export function packagePreview(files: Partial<Record<SourceKind, File>>, onProgr
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_URL}/uploads/package/preview`);
     xhr.withCredentials = true;
+    xhr.timeout = UPLOAD_TIMEOUT_MS;
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };
@@ -245,6 +266,7 @@ export function packagePreview(files: Partial<Record<SourceKind, File>>, onProgr
       }
     };
     xhr.onerror = () => reject(new ApiError(NETWORK_MSG));
+    xhr.ontimeout = () => reject(new ApiError(timeoutMsg(UPLOAD_TIMEOUT_MS), 408));
     const fd = new FormData();
     (Object.keys(files) as SourceKind[]).forEach((k) => {
       const f = files[k];
@@ -254,7 +276,7 @@ export function packagePreview(files: Partial<Record<SourceKind, File>>, onProgr
   });
 }
 export const confirmPackage = (id: number, mode?: ConflictMode) =>
-  request<PackageConfirm>(`/uploads/package/${id}/confirm`, jsonInit("POST", mode ? { mode } : {}));
+  request<PackageConfirm>(`/uploads/package/${id}/confirm`, jsonInit("POST", mode ? { mode } : {}), undefined, UPLOAD_TIMEOUT_MS);
 
 // ---------- Arsip file upload (PRD F22-F24, HR & Audit) ----------
 export type ArchiveStatus = "aktif" | "sampah" | "dihapus";
@@ -282,7 +304,7 @@ export const canArchive = (m: Me | null) => m?.departemen === "HR" || m?.departe
 export const getUploads = (o: { status?: string; limit?: number; offset?: number } = {}) =>
   request<UploadHistory[]>("/uploads", undefined, o);
 export const confirmUpload = (id: number, mode?: ConflictMode) =>
-  request<ConfirmResponse>(`/uploads/${id}/confirm`, jsonInit("POST", mode ? { mode } : {}));
+  request<ConfirmResponse>(`/uploads/${id}/confirm`, jsonInit("POST", mode ? { mode } : {}), undefined, UPLOAD_TIMEOUT_MS);
 export const deleteUpload = (id: number, alasan?: string) =>
   request<UploadHistory>(`/uploads/${id}`, jsonInit("DELETE", alasan ? { alasan } : undefined));
 export type BulkDeleteResult = { dihapus: number; tidak_ditemukan: number[]; arsip_ke_tempat_sampah: number };
@@ -296,6 +318,7 @@ export function uploadPreview(file: File, onProgress: (pct: number) => void): Pr
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_URL}/uploads/preview`);
     xhr.withCredentials = true;
+    xhr.timeout = UPLOAD_TIMEOUT_MS;
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };
@@ -311,6 +334,7 @@ export function uploadPreview(file: File, onProgress: (pct: number) => void): Pr
       }
     };
     xhr.onerror = () => reject(new ApiError(NETWORK_MSG));
+    xhr.ontimeout = () => reject(new ApiError(timeoutMsg(UPLOAD_TIMEOUT_MS), 408));
     const fd = new FormData();
     fd.append("file", file);
     xhr.send(fd);
@@ -354,6 +378,12 @@ export type PerusahaanData = {
 
 export const salesTemplateUrl = `${API_URL}/sales/template`;
 export const getSalesMeta = () => request<SalesMeta>("/sales/meta");
+// Daftar upload penjualan yang masih menyimpan data + hapus (membersihkan penjualan, target, penilaian).
+export type SalesUploadRow = {
+  id: number; filename: string; uploader: string; created_at: string; row_count: number | null; periode: string[];
+};
+export const getSalesUploads = () => request<SalesUploadRow[]>("/sales/uploads");
+export const deleteSalesUpload = (id: number) => request<{ id: number; dihapus: boolean; periode: string[] }>(`/sales/uploads/${id}`, { method: "DELETE" });
 export const getSalesmen = (periode: string, cabang?: string) => request<Salesman[]>("/sales/salesman", undefined, { periode, cabang });
 export type SalesGranularity = "bulan" | "kuartal" | "tahun";
 export const getCabangPerf = (periode: string, granularitas: SalesGranularity = "bulan") =>
@@ -361,7 +391,7 @@ export const getCabangPerf = (periode: string, granularitas: SalesGranularity = 
 export const getPerusahaanPerf = (periode: string, granularitas: SalesGranularity = "bulan") =>
   request<PerusahaanData>("/sales/perusahaan", undefined, { periode, granularitas });
 export const confirmSales = (id: number, timpa = false) =>
-  request<SalesConfirm>(`/sales/${id}/confirm`, { method: "POST" }, { timpa: timpa ? "true" : undefined });
+  request<SalesConfirm>(`/sales/${id}/confirm`, { method: "POST" }, { timpa: timpa ? "true" : undefined }, UPLOAD_TIMEOUT_MS);
 export const updateAssessment = (employeeId: string, periode: string, body: { status: AssessmentStatus; notes?: string }) =>
   request<{ message: string }>(`/sales/assessment/${encodeURIComponent(employeeId)}/${encodeURIComponent(periode)}`, jsonInit("PATCH", body));
 
@@ -370,6 +400,7 @@ export function salesPreview(file: File, onProgress: (pct: number) => void): Pro
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_URL}/sales/preview`);
     xhr.withCredentials = true;
+    xhr.timeout = UPLOAD_TIMEOUT_MS;
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };
@@ -385,6 +416,7 @@ export function salesPreview(file: File, onProgress: (pct: number) => void): Pro
       }
     };
     xhr.onerror = () => reject(new ApiError(NETWORK_MSG));
+    xhr.ontimeout = () => reject(new ApiError(timeoutMsg(UPLOAD_TIMEOUT_MS), 408));
     const fd = new FormData();
     fd.append("file", file);
     xhr.send(fd);
@@ -434,6 +466,17 @@ export type AuditAction = { value: string; label: string };
 // Pengguna yang muncul di audit log (bukan seluruh akun; /admin/users khusus IT).
 export const getAuditUsers = () => request<AuditUser[]>("/admin/audit-log/users");
 export const getAuditActions = () => request<{ actions: AuditAction[] }>("/admin/audit-log/actions");
+
+export type AuditLogItem = {
+  id: number; user_id: number | null; user_name: string | null; user_email: string | null;
+  action: string; detail: Record<string, unknown> | null; ip_address: string | null; created_at: string;
+};
+export type AuditLogPage = { items: AuditLogItem[]; total: number; page: number; page_size: number };
+export type AuditLogQuery = {
+  user_id?: number; action?: string; from_date?: string; to_date?: string; page?: number; page_size?: number;
+};
+// Lewat request() agar ikut batas waktu dan redirect ke login saat sesi habis (401).
+export const getAuditLog = (o: AuditLogQuery = {}) => request<AuditLogPage>("/admin/audit-log", undefined, o);
 
 // ---------- Kelola user (departemen IT) ----------
 export type AdminUser = {

@@ -55,17 +55,29 @@ export default function ArsipPage() {
     getArchiveUploaders().then(setUploaders).catch(() => undefined);
   }, []);
 
+  // Input teks diberi jeda agar tidak mengirim satu request per ketukan.
+  const [qDebounced, setQDebounced] = useState("");
+  const [eidDebounced, setEidDebounced] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setQDebounced(q.trim()), 350);
+    return () => clearTimeout(t);
+  }, [q]);
+  useEffect(() => {
+    const t = setTimeout(() => setEidDebounced(employeeId.trim()), 350);
+    return () => clearTimeout(t);
+  }, [employeeId]);
+
   const load = useCallback(() => {
     const query: ArchiveQuery = {
-      status: tab, jenis_sumber: jenis || undefined, q: q.trim() || undefined,
-      employee_id: employeeId.trim() || undefined,
+      status: tab, jenis_sumber: jenis || undefined, q: qDebounced || undefined,
+      employee_id: eidDebounced || undefined,
       dari: dari || undefined, sampai: sampai || undefined,
       pengunggah_id: pengunggah ? Number(pengunggah) : undefined, page_size: 50,
     };
     getArchive(query)
       .then((r) => { setData({ items: r.items, total: r.total }); setError(""); })
       .catch((e: Error) => setError(e.message));
-  }, [tab, jenis, q, employeeId, dari, sampai, pengunggah]);
+  }, [tab, jenis, qDebounced, eidDebounced, dari, sampai, pengunggah]);
 
   useEffect(load, [load]);
 

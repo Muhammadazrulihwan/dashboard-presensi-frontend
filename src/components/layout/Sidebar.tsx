@@ -13,7 +13,7 @@ const MAIN: { href: string; label: string; icon: IconName; show: Show }[] = [
   { href: "/presensi", label: "Data Presensi", icon: "calendar", show: "dashboard" },
   { href: "/karyawan", label: "Master Karyawan", icon: "users", show: "dashboard" },
   { href: "/kinerja", label: "Kinerja Karyawan", icon: "trending", show: "performance" },
-  { href: "/upload", label: "Upload Data", icon: "upload", show: "hr" },
+  { href: "/upload", label: "Upload Template Lama", icon: "upload", show: "hr" },
   { href: "/upload-paket", label: "Upload Paket 4 Sumber", icon: "cloudUpload", show: "hr" },
   { href: "/riwayat", label: "Riwayat Upload", icon: "history", show: "hr" },
   { href: "/kelengkapan", label: "Kelengkapan Data", icon: "clipboardCheck", show: "hr" },
